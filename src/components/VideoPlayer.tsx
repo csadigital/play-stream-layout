@@ -70,16 +70,19 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
         console.error('🚨 HLS Hatası:', data);
         if (data.fatal) {
+          // Detect proxy → HTML case (no EXTM3U) and fallback to direct URL
+          const servedHtml = typeof data?.response?.data === 'string' && data.response.data.toLowerCase().includes('<!doctype html');
+          const proxyFailed = lastUrlRef.current?.includes('/api/proxy');
+          const shouldDirectFallback = proxyFailed && (
+            data.details === 'manifestLoadError' ||
+            data.details === 'manifestParsingError' ||
+            servedHtml
+          );
+
           switch (data.type) {
             case window.Hls.ErrorTypes.NETWORK_ERROR:
               console.log('📡 Ağ hatası - yeniden denenecek...');
-              // Fallback: if proxy failed, try direct URL once
-              if (
-                data.details === 'manifestLoadError' &&
-                lastUrlRef.current &&
-                lastUrlRef.current.includes('/api/proxy') &&
-                selectedChannel?.url
-              ) {
+              if (shouldDirectFallback && selectedChannel?.url) {
                 const directUrl = selectedChannel.url;
                 console.log('🔀 Proxy başarısız - direkt akışa geçiliyor:', directUrl);
                 setError(null);
@@ -96,8 +99,18 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
               hls.recoverMediaError();
               break;
             default:
-              setError(`Yayın hatası: ${data.details || 'Bilinmeyen hata'}`);
-              setIsLoading(false);
+              if (shouldDirectFallback && selectedChannel?.url) {
+                const directUrl = selectedChannel.url;
+                console.log('🔀 Proxy başarısız (parse) - direkt akışa geçiliyor:', directUrl);
+                setError(null);
+                setIsLoading(true);
+                hls.loadSource(directUrl);
+                lastUrlRef.current = directUrl;
+                hls.startLoad();
+              } else {
+                setError(`Yayın hatası: ${data.details || 'Bilinmeyen hata'}`);
+                setIsLoading(false);
+              }
               break;
           }
         }

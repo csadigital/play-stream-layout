@@ -1,6 +1,7 @@
 // Direct M3U8 streaming service with PHP backend integration
 import { proxyService } from './proxyService';
 import { channelParser, ParsedChannel } from './channelParser';
+import { BACKEND_BASE_URL } from '@/config/backend';
 
 export interface Channel {
   id: number;
@@ -35,14 +36,15 @@ class StreamingApiService {
   private viewerIpTracker: { [ip: string]: { channelId: string; timestamp: number } } = {};
   
   constructor() {
-    // Use current domain for backend API
-    const currentDomain = window.location.origin;
-    this.apiBaseUrl = currentDomain;
+    // Backend API base URL
+    this.apiBaseUrl = /^(https?:)\/\//.test(BACKEND_BASE_URL)
+      ? BACKEND_BASE_URL
+      : '';
     
     // Start real-time viewer updates
     this.startViewerUpdates();
     
-    console.log('🔧 StreamingApi initialized with backend:', this.apiBaseUrl);
+    console.log('🔧 StreamingApi initialized with backend:', this.apiBaseUrl || '(not configured)');
   }
 
   /**
@@ -167,6 +169,9 @@ class StreamingApiService {
     }
 
     try {
+      if (!this.apiBaseUrl) {
+        throw new Error('Backend not configured');
+      }
       console.log('🔄 Fetching channels from PHP backend:', `${this.apiBaseUrl}/api/channels`);
       
       // Fetch from PHP backend
@@ -295,12 +300,14 @@ class StreamingApiService {
   }
 
   /**
-   * Get stream URL through domain proxy (always proxy to avoid CORS)
+   * Get stream URL through domain proxy (prefer proxy; fallback direct if not configured)
    */
   getStreamUrl(channelUrl: string): string {
-    // Always proxy through current domain to avoid CORS issues
-    const encodedUrl = encodeURIComponent(channelUrl);
-    return `${this.apiBaseUrl}/api/proxy?url=${encodedUrl}`;
+    if (this.apiBaseUrl) {
+      const encodedUrl = encodeURIComponent(channelUrl);
+      return `${this.apiBaseUrl}/api/proxy?url=${encodedUrl}`;
+    }
+    return channelUrl;
   }
 
   /**
