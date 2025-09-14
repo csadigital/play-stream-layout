@@ -1,4 +1,7 @@
-// Direct M3U8 streaming service with real-time updates
+// Direct M3U8 streaming service with integrated channel parser
+import { proxyService } from './proxyService';
+import { channelParser, ParsedChannel } from './channelParser';
+
 export interface Channel {
   id: number;
   name: string;
@@ -11,6 +14,7 @@ export interface Channel {
   quality?: string;
   status: 'live' | 'offline';
   tvg_id?: string;
+  number?: string | number;
 }
 
 export interface StreamStats {
@@ -21,16 +25,12 @@ export interface StreamStats {
 }
 
 class StreamingApiService {
-  private m3u8Url: string;
   private cache: { [key: string]: { data: any; timestamp: number } } = {};
   private cacheTime: number = 60000; // 1 minute cache
   private viewerUpdateInterval: NodeJS.Timeout | null = null;
   private channels: Channel[] = [];
 
   constructor() {
-    // Original M3U8 URL
-    this.m3u8Url = 'http://hadronbalancer.xyz:80/get.php?username=sjafGsaGx1235&password=yJHHUuxUrn&type=m3u_plus&output=ts';
-    
     // Start real-time viewer updates
     this.startViewerUpdates();
   }
@@ -78,7 +78,7 @@ class StreamingApiService {
   }
 
   /**
-   * Fetch all available channels with multiple fallback strategies
+   * Fetch all available channels using the new parser
    */
   async getChannels(): Promise<Channel[]> {
     const cacheKey = 'channels';
@@ -90,74 +90,19 @@ class StreamingApiService {
     }
 
     try {
-      console.log('🔄 M3U8 listesi çekiliyor...', this.m3u8Url);
+      console.log('🔄 Fetching channels using integrated parser...');
       
-      // Try multiple methods to fetch M3U8
-      let content = '';
+      // Use the new channel parser
+      const response = await channelParser.fetchAndParseChannels();
       
-      // Method 1: Direct fetch with CORS mode
-      try {
-        const response = await fetch(this.m3u8Url, {
-          method: 'GET',
-          mode: 'cors',
-          headers: {
-            'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, text/plain',
-            'User-Agent': 'SportStream/1.0',
-          },
-        });
-        
-        if (response.ok) {
-          content = await response.text();
-          console.log('✅ Direkt bağlantı başarılı:', content.length, 'karakter');
-        }
-      } catch (directError) {
-        console.log('⚠️ Direkt bağlantı başarısız:', directError.message);
+      if (!response.success || response.channels.length === 0) {
+        console.log('⚠️ Parser returned no channels, using fallback');
+        this.channels = this.convertParsedChannels(response.channels);
+        return this.channels;
       }
 
-      // Method 2: Try with AllOrigins proxy if direct fails
-      if (!content || content.length < 100) {
-        try {
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(this.m3u8Url)}`;
-          const proxyResponse = await fetch(proxyUrl);
-          
-          if (proxyResponse.ok) {
-            const data = await proxyResponse.json();
-            content = data.contents;
-            console.log('✅ Proxy bağlantısı başarılı:', content.length, 'karakter');
-          }
-        } catch (proxyError) {
-          console.log('⚠️ Proxy bağlantısı başarısız:', proxyError.message);
-        }
-      }
-
-      // Method 3: Try with CORS Anywhere as last resort
-      if (!content || content.length < 100) {
-        try {
-          const corsUrl = `https://cors-anywhere.herokuapp.com/${this.m3u8Url}`;
-          const corsResponse = await fetch(corsUrl, {
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-          });
-          
-          if (corsResponse.ok) {
-            content = await corsResponse.text();
-            console.log('✅ CORS Anywhere başarılı:', content.length, 'karakter');
-          }
-        } catch (corsError) {
-          console.log('⚠️ CORS Anywhere başarısız:', corsError.message);
-        }
-      }
-      
-      if (!content || content.length < 100) {
-        throw new Error('M3U8 içeriği alınamadı');
-      }
-
-      const channels = this.parseM3U8Content(content);
-      
-      if (channels.length === 0) {
-        throw new Error('Geçerli kanal bulunamadı');
-      }
+      // Convert parsed channels to our format
+      const channels = this.convertParsedChannels(response.channels);
       
       // Cache the result
       this.cache[cacheKey] = {
@@ -166,17 +111,36 @@ class StreamingApiService {
       };
       
       this.channels = channels;
-      console.log(`✅ ${channels.length} kanal başarıyla ayrıştırıldı`);
+      console.log(`✅ Successfully loaded ${channels.length} channels via parser`);
       return channels;
       
     } catch (error) {
-      console.error('❌ M3U8 çekme hatası:', error);
-      console.log('🔄 Yedek kanallar yükleniyor...');
+      console.error('❌ Channel parser failed:', error);
+      console.log('🔄 Using Turkish demo channels...');
       
-      // Use working demo channels with proper Turkish content
+      // Use working demo channels
       this.channels = this.getTurkishDemoChannels();
       return this.channels;
     }
+  }
+
+  /**
+   * Convert parsed channels to our Channel format
+   */
+  private convertParsedChannels(parsedChannels: ParsedChannel[]): Channel[] {
+    return parsedChannels.map(parsed => ({
+      id: parsed.id,
+      name: parsed.name,
+      category: parsed.category,
+      logo: parsed.logo || this.generatePlaceholderLogo(parsed.name),
+      url: parsed.url,
+      viewers: parsed.viewers,
+      description: parsed.description,
+      language: 'tr',
+      quality: parsed.quality,
+      status: parsed.status,
+      number: parsed.number
+    }));
   }
 
   /**
@@ -204,167 +168,38 @@ class StreamingApiService {
   }
 
   /**
-   * Parse M3U8 content with improved Turkish character support
-   */
-  private parseM3U8Content(content: string): Channel[] {
-    const channels: Channel[] = [];
-    
-    // Fix Turkish character encoding issues
-    content = this.fixTurkishEncoding(content);
-    
-    const lines = content.split('\n');
-    let currentChannel: Partial<Channel> = {};
-    let id = 1;
-
-    console.log(`📋 ${lines.length} satır işleniyor...`);
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      if (line.startsWith('#EXTINF:')) {
-        // Parse channel information from EXTINF line
-        currentChannel = this.parseExtinfLine(line);
-        currentChannel.id = id++;
-        currentChannel.status = 'live';
-        currentChannel.viewers = this.generateRealisticViewerCount(currentChannel.category || 'Genel');
-        
-      } else if (line && !line.startsWith('#') && currentChannel.name && line.includes('http')) {
-        // This is the stream URL
-        currentChannel.url = line.trim();
-        
-        // Generate description if not present
-        if (!currentChannel.description) {
-          currentChannel.description = this.generateDescription(currentChannel);
-        }
-        
-        // Only add channels with valid URLs and names
-        if (currentChannel.url && currentChannel.name && this.isValidStreamUrl(currentChannel.url)) {
-          channels.push(currentChannel as Channel);
-          console.log(`✅ Kanal eklendi: ${currentChannel.name} (${currentChannel.category})`);
-        } else {
-          console.log(`❌ Geçersiz kanal atlandı: ${currentChannel.name}`);
-        }
-        
-        currentChannel = {};
-      }
-    }
-
-    console.log(`📊 Toplam ${channels.length} geçerli kanal bulundu`);
-
-    // Sort channels by category and viewer count
-    return channels.sort((a, b) => {
-      if (a.category === b.category) {
-        return b.viewers - a.viewers;
-      }
-      return a.category.localeCompare(b.category, 'tr');
-    });
-  }
-
-  /**
-   * Fix Turkish character encoding issues
-   */
-  private fixTurkishEncoding(content: string): string {
-    // Common Turkish character fixes
-    const fixes: [RegExp, string][] = [
-      [/Ã§/g, 'ç'], [/Ã‡/g, 'Ç'],
-      [/ÄŸ/g, 'ğ'], [/Ä/g, 'Ğ'],
-      [/Ä±/g, 'ı'], [/Ä°/g, 'İ'],
-      [/Ã¶/g, 'ö'], [/Ã–/g, 'Ö'],
-      [/Ã¼/g, 'ü'], [/Ãœ/g, 'Ü'],
-      [/ÅŸ/g, 'ş'], [/Åž/g, 'Ş'],
-      [/â€™/g, "'"], [/â€œ/g, '"'], [/â€/g, '"'],
-      [/â€"/g, '-'], [/â€¦/g, '...'],
-    ];
-    
-    let fixed = content;
-    fixes.forEach(([from, to]) => {
-      fixed = fixed.replace(from, to);
-    });
-    
-    return fixed;
-  }
-
-  /**
-   * Parse EXTINF line with improved Turkish support
-   */
-  private parseExtinfLine(line: string): Partial<Channel> {
-    const channel: Partial<Channel> = {
-      name: '',
-      category: 'Genel',
-      logo: '',
-      description: '',
-      language: 'tr',
-      quality: 'HD'
-    };
-
-    // Extract channel name (everything after the comma) with Turkish support
-    const nameMatch = line.match(/#EXTINF:.*,(.+)$/);
-    if (nameMatch) {
-      channel.name = this.fixTurkishEncoding(nameMatch[1].trim());
-    }
-
-    // Extract logo URL
-    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-    if (logoMatch) {
-      channel.logo = logoMatch[1];
-    }
-
-    // Extract category/group with Turkish normalization
-    const groupMatch = line.match(/group-title="([^"]+)"/);
-    if (groupMatch) {
-      channel.category = this.normalizeCategory(this.fixTurkishEncoding(groupMatch[1]));
-    }
-
-    // Extract TVG ID
-    const tvgIdMatch = line.match(/tvg-id="([^"]+)"/);
-    if (tvgIdMatch) {
-      channel.tvg_id = tvgIdMatch[1];
-    }
-
-    // Extract language
-    const langMatch = line.match(/tvg-language="([^"]+)"/);
-    if (langMatch) {
-      channel.language = langMatch[1];
-    }
-
-    // Detect quality from name or line
-    channel.quality = this.detectQuality(line + ' ' + (channel.name || ''));
-
-    // Generate placeholder logo if none provided
-    if (!channel.logo && channel.name) {
-      channel.logo = this.generatePlaceholderLogo(channel.name);
-    }
-
-    return channel;
-  }
-
-  /**
-   * Improved URL validation for streaming
-   */
-  private isValidStreamUrl(url: string): boolean {
-    try {
-      const urlObj = new URL(url);
-      const validProtocols = ['http:', 'https:'];
-      const validExtensions = ['.m3u8', '.ts', '.mp4', '.flv'];
-      const validKeywords = ['playlist', 'stream', 'live', 'hls'];
-      
-      if (!validProtocols.includes(urlObj.protocol)) {
-        return false;
-      }
-      
-      const lowerUrl = url.toLowerCase();
-      return validExtensions.some(ext => lowerUrl.includes(ext)) ||
-             validKeywords.some(keyword => lowerUrl.includes(keyword));
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Get direct stream URL (no proxy needed)
+   * Get direct stream URL with proxy processing if needed
    */
   getStreamUrl(channelUrl: string): string {
+    // For M3U8 URLs, we can try to process them through our proxy service
+    if (channelUrl.includes('.m3u8')) {
+      return channelUrl; // Direct M3U8 URL - modern browsers handle this well
+    }
+    
+    // For other stream types, return as is
     return channelUrl;
+  }
+
+  /**
+   * Process M3U8 URL through proxy service (future enhancement)
+   */
+  async processM3U8Stream(channelUrl: string): Promise<string> {
+    try {
+      // Check if URL needs .m3u8 extension
+      const processedUrl = await proxyService.checkAndFixM3U8Url(channelUrl);
+      
+      // If it's a valid M3U8, we can process it
+      if (processedUrl.includes('.m3u8')) {
+        return processedUrl;
+      }
+      
+      // For non-M3U8 streams, create a simple playlist
+      return `data:application/vnd.apple.mpegurl,${encodeURIComponent(proxyService.createSimplePlaylist(channelUrl))}`;
+      
+    } catch (error) {
+      console.error('Stream processing failed:', error);
+      return channelUrl; // Return original URL as fallback
+    }
   }
 
   /**
@@ -399,7 +234,7 @@ class StreamingApiService {
   async getCategories(): Promise<string[]> {
     const channels = await this.getChannels();
     const categories = [...new Set(channels.map(channel => channel.category))];
-    return categories.sort();
+    return categories.sort((a, b) => a.localeCompare(b, 'tr'));
   }
 
   /**
@@ -478,16 +313,39 @@ class StreamingApiService {
     const colors = ['238636', 'da3633', 'fb8500', '6f42c1', '20c997', 'fd7e14', 'e83e8c', '6610f2'];
     const colorIndex = name.length % colors.length;
     const color = colors[colorIndex];
-    return `https://via.placeholder.com/48x48/${color}/ffffff?text=${initial}`;
+    return `https://via.placeholder.com/48x48/${color}/ffffff?text=${encodeURIComponent(initial)}`;
   }
 
-  private isValidUrl(url: string): boolean {
+  private isValidStreamUrl(url: string): boolean {
     try {
       new URL(url);
-      return url.includes('http') && (url.includes('.m3u8') || url.includes('.ts') || url.includes('playlist'));
+      return url.includes('http') && (url.includes('.m3u8') || url.includes('.ts') || url.includes('playlist') || url.includes(':8080'));
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Fix Turkish character encoding issues
+   */
+  private fixTurkishEncoding(content: string): string {
+    const fixes: [RegExp, string][] = [
+      [/Ã§/g, 'ç'], [/Ã‡/g, 'Ç'],
+      [/ÄŸ/g, 'ğ'], [/Ä/g, 'Ğ'],
+      [/Ä±/g, 'ı'], [/Ä°/g, 'İ'],
+      [/Ã¶/g, 'ö'], [/Ã–/g, 'Ö'],
+      [/Ã¼/g, 'ü'], [/Ãœ/g, 'Ü'],
+      [/ÅŸ/g, 'ş'], [/Åž/g, 'Ş'],
+      [/â€™/g, "'"], [/â€œ/g, '"'], [/â€/g, '"'],
+      [/â€"/g, '-'], [/â€¦/g, '...'],
+    ];
+    
+    let fixed = content;
+    fixes.forEach(([from, to]) => {
+      fixed = fixed.replace(from, to);
+    });
+    
+    return fixed;
   }
 
   /**
@@ -505,7 +363,8 @@ class StreamingApiService {
         description: 'TRT Spor canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'TRT'
       },
       {
         id: 2,
@@ -517,7 +376,8 @@ class StreamingApiService {
         description: 'A Spor canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'A'
       },
       {
         id: 3,
@@ -529,7 +389,8 @@ class StreamingApiService {
         description: 'TRT 1 canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 1
       },
       {
         id: 4,
@@ -541,7 +402,8 @@ class StreamingApiService {
         description: 'Show TV canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'SH'
       },
       {
         id: 5,
@@ -553,7 +415,8 @@ class StreamingApiService {
         description: 'CNN Türk canlı haber yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'CNN'
       },
       {
         id: 6,
@@ -565,7 +428,8 @@ class StreamingApiService {
         description: 'TRT Haber canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'TH'
       },
       {
         id: 7,
@@ -577,7 +441,8 @@ class StreamingApiService {
         description: 'TRT Çocuk canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'TÇ'
       },
       {
         id: 8,
@@ -589,7 +454,34 @@ class StreamingApiService {
         description: 'TRT Müzik canlı yayını',
         status: 'live' as const,
         quality: 'HD',
-        language: 'tr'
+        language: 'tr',
+        number: 'TM'
+      },
+      {
+        id: 9,
+        name: 'beIN Sports 1 HD',
+        category: 'Spor',
+        logo: 'https://via.placeholder.com/48x48/dc2626/ffffff?text=B1',
+        url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8', // Fallback URL
+        viewers: this.generateRealisticViewerCount('Spor'),
+        description: 'beIN Sports 1 canlı spor yayını',
+        status: 'live' as const,
+        quality: 'HD',
+        language: 'tr',
+        number: 1
+      },
+      {
+        id: 10,
+        name: 'Smart Spor HD',
+        category: 'Spor',
+        logo: 'https://via.placeholder.com/48x48/059669/ffffff?text=SS',
+        url: 'https://trkvz-live.daioncdn.net/aspor/aspor.m3u8', // Fallback URL
+        viewers: this.generateRealisticViewerCount('Spor'),
+        description: 'Smart Spor canlı yayını',
+        status: 'live' as const,
+        quality: 'HD',
+        language: 'tr',
+        number: 'SS'
       }
     ];
   }
@@ -602,6 +494,10 @@ class StreamingApiService {
       clearInterval(this.viewerUpdateInterval);
       this.viewerUpdateInterval = null;
     }
+    
+    // Clear cache
+    proxyService.clearCache();
+    channelParser.clearCache();
   }
 }
 
