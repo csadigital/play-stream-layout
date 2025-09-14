@@ -22,17 +22,17 @@ const Index = () => {
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-primary">SportStream</h1>
               <div className="hidden md:flex items-center space-x-6 text-sm">
-                <a href="#" className="text-foreground hover:text-primary transition-colors">Home</a>
-                <a href="#" className="text-foreground hover:text-primary transition-colors">Live</a>
-                <a href="#" className="text-foreground hover:text-primary transition-colors">Sports</a>
-                <a href="#" className="text-foreground hover:text-primary transition-colors">Schedule</a>
+                <a href="#" className="text-foreground hover:text-primary transition-colors">Ana Sayfa</a>
+                <a href="#" className="text-foreground hover:text-primary transition-colors">Canlı</a>
+                <a href="#" className="text-foreground hover:text-primary transition-colors">Spor</a>
+                <a href="#" className="text-foreground hover:text-primary transition-colors">Program</a>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className="text-sm text-muted-foreground">
                 🔴 <span className="text-primary font-semibold">
-                  {stats?.total_channels || 'Loading'} Live
+                  {stats?.total_channels || 'Yükleniyor'} Canlı
                 </span>
               </div>
             </div>
@@ -68,20 +68,20 @@ const Index = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold text-foreground">
-                  {selectedChannel ? selectedChannel.name : 'Select a Channel'}
+                  {selectedChannel ? selectedChannel.name : 'Bir Kanal Seçin'}
                 </h2>
                 <p className="text-muted-foreground">
-                  {selectedChannel ? `${selectedChannel.category} • ${selectedChannel.description}` : 'Choose from available live streams'}
+                  {selectedChannel ? `${selectedChannel.category} • ${selectedChannel.description}` : 'Mevcut canlı yayınlardan birini seçin'}
                 </p>
               </div>
               {selectedChannel && (
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-primary">
-                    {selectedChannel.status === 'live' ? 'LIVE' : 'OFFLINE'}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedChannel.viewers.toLocaleString()} viewers
-                  </div>
+                <div className="text-2xl font-bold text-primary">
+                  {selectedChannel.status === 'live' ? 'CANLI' : 'ÇEVRİMDIŞI'}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {selectedChannel.viewers.toLocaleString()} izleyici
+                </div>
                 </div>
               )}
             </div>
@@ -90,23 +90,23 @@ const Index = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Quality</span>
-                    <span className="text-foreground">{selectedChannel.quality || 'Auto'}</span>
+                    <span className="text-muted-foreground">Kalite</span>
+                    <span className="text-foreground">{selectedChannel.quality || 'Otomatik'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Language</span>
-                    <span className="text-foreground">{selectedChannel.language || 'N/A'}</span>
+                    <span className="text-muted-foreground">Dil</span>
+                    <span className="text-foreground">{selectedChannel.language || 'Belirtilmemiş'}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Category</span>
+                    <span className="text-muted-foreground">Kategori</span>
                     <span className="text-foreground">{selectedChannel.category}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status</span>
+                    <span className="text-muted-foreground">Durum</span>
                     <span className={`${selectedChannel.status === 'live' ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {selectedChannel.status.toUpperCase()}
+                      {selectedChannel.status === 'live' ? 'CANLI' : 'ÇEVRİMDIŞI'}
                     </span>
                   </div>
                 </div>
@@ -116,8 +116,8 @@ const Index = () => {
             {!selectedChannel && (
               <div className="text-center py-8 text-muted-foreground">
                 <div className="text-6xl mb-4">📺</div>
-                <div className="text-lg font-semibold mb-2">Welcome to SportStream</div>
-                <div className="text-sm">Select a channel from the left sidebar to start watching live sports</div>
+                <div className="text-lg font-semibold mb-2">SportStream'e Hoş Geldiniz</div>
+                <div className="text-sm">Canlı spor izlemeye başlamak için sol kenar çubuğundan bir kanal seçin</div>
               </div>
             )}
           </div>

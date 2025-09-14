@@ -7,12 +7,12 @@ const LiveChat = () => {
   const [message, setMessage] = useState('');
   
   const messages = [
-    { id: 1, user: 'SportsFan99', text: 'What a goal! 🔥', time: '2 min ago', isOwn: false },
-    { id: 2, user: 'RedDevil', text: 'Manchester United looking strong today!', time: '3 min ago', isOwn: false },
-    { id: 3, user: 'You', text: 'This match is incredible!', time: '4 min ago', isOwn: true },
-    { id: 4, user: 'FootballKing', text: 'Best game of the season so far', time: '5 min ago', isOwn: false },
-    { id: 5, user: 'LiveWatcher', text: 'Anyone else getting chills?', time: '6 min ago', isOwn: false },
-    { id: 6, user: 'ChampionFan', text: 'The atmosphere is electric! ⚡', time: '7 min ago', isOwn: false },
+    { id: 1, user: 'SporFan99', text: 'Ne gol be! 🔥', time: '2 dk önce', isOwn: false },
+    { id: 2, user: 'KırmızıŞeytan', text: 'Bugün çok güçlü oynuyoruz!', time: '3 dk önce', isOwn: false },
+    { id: 3, user: 'Sen', text: 'Bu maç harika!', time: '4 dk önce', isOwn: true },
+    { id: 4, user: 'FutbolKralı', text: 'Sezonun en iyi maçı şu ana kadar', time: '5 dk önce', isOwn: false },
+    { id: 5, user: 'Canlıİzleyici', text: 'Başka kimse de tırpanıyor mu?', time: '6 dk önce', isOwn: false },
+    { id: 6, user: 'ŞampiyonFan', text: 'Atmosfer müthiş! ⚡', time: '7 dk önce', isOwn: false },
   ];
 
   const quickReplies = [
@@ -33,8 +33,8 @@ const LiveChat = () => {
     <div className="space-y-4">
       {/* Chat Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-foreground">Live Chat</h3>
-        <div className="text-xs text-muted-foreground">847 watching</div>
+        <h3 className="font-bold text-foreground">Canlı Sohbet</h3>
+        <div className="text-xs text-muted-foreground">847 kişi izliyor</div>
       </div>
 
       {/* Chat Messages */}
@@ -78,7 +78,7 @@ const LiveChat = () => {
         <Input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type your message..."
+          placeholder="Mesajınızı yazın..."
           className="flex-1 bg-background-secondary/50 border-muted"
           onKeyPress={(e) => e.key === 'Enter' && handleSend()}
         />

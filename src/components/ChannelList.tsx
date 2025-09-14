@@ -36,8 +36,8 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
     return (
       <div className="space-y-6">
         <div className="text-center p-4 bg-destructive/10 rounded-lg">
-          <div className="text-destructive text-sm">Failed to load channels</div>
-          <div className="text-muted-foreground text-xs mt-1">Using fallback channels</div>
+          <div className="text-destructive text-sm">Kanallar yüklenemedi</div>
+          <div className="text-muted-foreground text-xs mt-1">Yedek kanallar kullanılıyor</div>
         </div>
       </div>
     );
@@ -56,7 +56,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search channels..."
+            placeholder="Kanal ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-background-secondary/50 border-muted"
@@ -72,7 +72,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
               onClick={() => setSelectedCategory(category)}
               className="whitespace-nowrap text-xs"
             >
-              {category === 'all' ? 'All' : category}
+              {category === 'all' ? 'Tümü' : category}
             </Button>
           ))}
         </div>
@@ -81,9 +81,9 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
       {/* Channel List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">Live Channels</h2>
+          <h2 className="text-lg font-bold text-foreground">Canlı Kanallar</h2>
           {isLoading && (
-            <div className="text-xs text-muted-foreground">Loading...</div>
+            <div className="text-xs text-muted-foreground">Yükleniyor...</div>
           )}
         </div>
         
@@ -116,7 +116,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="text-primary text-xs font-medium">
-                    {channel.viewers.toLocaleString()} viewers
+                    {channel.viewers.toLocaleString()} izleyici
                   </div>
                   {channel.quality && (
                     <div className="px-1 py-0.5 bg-secondary/20 text-secondary-foreground text-xs rounded">
@@ -135,8 +135,8 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
           {filteredChannels.length === 0 && !isLoading && (
             <div className="text-center py-8 text-muted-foreground">
               <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <div className="text-sm">No channels found</div>
-              <div className="text-xs">Try adjusting your search or filter</div>
+              <div className="text-sm">Kanal bulunamadı</div>
+              <div className="text-xs">Arama veya filtreyi değiştirmeyi deneyin</div>
             </div>
           )}
         </div>
@@ -155,7 +155,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-primary" />
-          <h3 className="font-bold text-foreground">Today's Matches</h3>
+          <h3 className="font-bold text-foreground">Bugünün Maçları</h3>
         </div>
         
         <div className="space-y-3">
@@ -175,7 +175,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {match.status === 'live' ? 'LIVE' : 'Soon'}
+                {match.status === 'live' ? 'CANLI' : 'Yakında'}
               </div>
             </div>
           ))}
