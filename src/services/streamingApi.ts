@@ -1,7 +1,6 @@
-// Direct M3U8 streaming service with PHP backend integration
+// Direct M3U8 streaming service - TypeScript only
 import { proxyService } from './proxyService';
 import { channelParser, ParsedChannel } from './channelParser';
-import { getBackendBaseUrl } from '@/config/backend';
 
 export interface Channel {
   id: number;
@@ -36,13 +35,13 @@ class StreamingApiService {
   private viewerIpTracker: { [ip: string]: { channelId: string; timestamp: number } } = {};
   
   constructor() {
-    // Backend API base URL
-    this.apiBaseUrl = getBackendBaseUrl();
+    // No backend needed - direct streaming
+    this.apiBaseUrl = '';
     
     // Start real-time viewer updates
     this.startViewerUpdates();
     
-    console.log('🔧 StreamingApi initialized with backend:', this.apiBaseUrl || '(not configured)');
+    console.log('🔧 StreamingApi initialized - Direct streaming mode');
   }
 
   /**
@@ -167,72 +166,28 @@ class StreamingApiService {
     }
 
     try {
-      if (!this.apiBaseUrl) {
-        throw new Error('Backend not configured');
+      // Direct M3U parsing - no backend needed
+      const response = await channelParser.fetchAndParseChannels();
+      if (response.success && response.channels.length > 0) {
+        this.channels = this.convertParsedChannels(response.channels);
+        
+        // Cache the result
+        this.cache[cacheKey] = {
+          data: this.channels,
+          timestamp: Date.now()
+        };
+        
+        console.log('✅ Direct M3U parsing succeeded');
+        return this.channels;
       }
-      console.log('🔄 Fetching channels from PHP backend:', `${this.apiBaseUrl}/api/channels`);
-      
-      // Fetch from PHP backend
-      const response = await fetch(`${this.apiBaseUrl}/api/channels`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        console.warn('⚠️ Backend returned error:', result.message);
-        // Still try to use the channels if available
-        if (result.channels && result.channels.length > 0) {
-          this.channels = this.convertBackendChannels(result.channels);
-          return this.channels;
-        }
-        throw new Error(result.message || 'Backend returned no channels');
-      }
-
-      // Convert backend channels to our format
-      const channels = this.convertBackendChannels(result.channels);
-      
-      // Cache the result
-      this.cache[cacheKey] = {
-        data: channels,
-        timestamp: Date.now()
-      };
-      
-      this.channels = channels;
-      this.backendOnline = true;
-      console.log(`✅ Successfully loaded ${channels.length} channels from PHP backend`);
-      return channels;
-      
     } catch (error) {
-      console.error('❌ Backend fetch failed:', error);
-      this.backendOnline = false;
-      console.log('🔄 Trying fallback methods...');
-      
-      // Try alternative methods if backend fails
-      try {
-        const response = await channelParser.fetchAndParseChannels();
-        if (response.success && response.channels.length > 0) {
-          this.channels = this.convertParsedChannels(response.channels);
-          console.log('✅ Fallback parser succeeded');
-          return this.channels;
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback parser also failed:', fallbackError);
-      }
-      
-      // Use Turkish demo channels as last resort
-      console.log('🔄 Using demo channels...');
-      this.channels = this.getTurkishDemoChannels();
-      return this.channels;
+      console.error('❌ M3U parsing failed:', error);
     }
+    
+    // Use Turkish demo channels as fallback
+    console.log('🔄 Using demo channels...');
+    this.channels = this.getTurkishDemoChannels();
+    return this.channels;
   }
 
   /**
@@ -298,13 +253,9 @@ class StreamingApiService {
   }
 
   /**
-   * Get stream URL through domain proxy (prefer proxy; fallback direct if not configured)
+   * Get direct stream URL - no proxy needed
    */
   getStreamUrl(channelUrl: string): string {
-    if (this.apiBaseUrl) {
-      const encodedUrl = encodeURIComponent(channelUrl);
-      return `${this.apiBaseUrl}/api/proxy?url=${encodedUrl}`;
-    }
     return channelUrl;
   }
 
