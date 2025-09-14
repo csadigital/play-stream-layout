@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Calendar, Clock, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useChannels } from '@/hooks/useChannels';
+import { useChannels, useRealTimeViewers } from '@/hooks/useChannels';
 import { Channel } from '@/services/streamingApi';
 
 interface ChannelListProps {
@@ -12,6 +12,7 @@ interface ChannelListProps {
 
 const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => {
   const { data: channels = [], isLoading, error } = useChannels();
+  const realTimeViewers = useRealTimeViewers();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -32,6 +33,11 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
     { time: '20:45', teams: 'Bayern vs Dortmund', status: 'upcoming' },
   ];
 
+  // Get real-time viewer count for a channel
+  const getViewerCount = (channel: Channel) => {
+    return realTimeViewers[channel.id] || channel.viewers;
+  };
+
   if (error) {
     return (
       <div className="space-y-6">
@@ -47,7 +53,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
     <div className="space-y-6">
       {/* Top Banner Ad */}
       <div className="ad-banner h-20">
-        <span className="text-xs">Advertisement 728x90</span>
+        <span className="text-xs">Reklam Alanı 728x90</span>
       </div>
 
       {/* Search and Filter */}
@@ -85,52 +91,61 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
           {isLoading && (
             <div className="text-xs text-muted-foreground">Yükleniyor...</div>
           )}
+          <div className="text-xs text-success font-semibold">
+            🔴 {filteredChannels.filter(c => c.status === 'live').length} Canlı
+          </div>
         </div>
         
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {filteredChannels.map((channel) => (
-            <div 
-              key={channel.id} 
-              className={`channel-item ${selectedChannel?.id === channel.id ? 'bg-primary/10 border-primary/20' : ''}`}
-              onClick={() => onChannelSelect?.(channel)}
-            >
-              <div className="relative">
-                <div className={`status-dot ${channel.status === 'live' ? 'live' : 'offline'}`} />
-                <img 
-                  src={channel.logo} 
-                  alt={channel.name}
-                  className="w-12 h-12 rounded-lg object-cover ml-4"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = `https://via.placeholder.com/48x48/238636/ffffff?text=${channel.name.charAt(0)}`;
-                  }}
-                />
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-foreground text-sm truncate">
-                  {channel.name}
+          {filteredChannels.map((channel) => {
+            const currentViewers = getViewerCount(channel);
+            return (
+              <div 
+                key={channel.id} 
+                className={`channel-item ${selectedChannel?.id === channel.id ? 'bg-primary/10 border-primary/20' : ''}`}
+                onClick={() => onChannelSelect?.(channel)}
+              >
+                <div className="relative">
+                  <div className={`status-dot ${channel.status === 'live' ? 'live' : 'offline'}`} />
+                  <img 
+                    src={channel.logo} 
+                    alt={channel.name}
+                    className="w-12 h-12 rounded-lg object-cover ml-4"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://via.placeholder.com/48x48/238636/ffffff?text=${encodeURIComponent(channel.name.charAt(0))}`;
+                    }}
+                  />
                 </div>
-                <div className="text-muted-foreground text-xs truncate">
-                  {channel.description}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="text-primary text-xs font-medium">
-                    {channel.viewers.toLocaleString()} izleyici
+                
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground text-sm truncate">
+                    {channel.name}
                   </div>
-                  {channel.quality && (
-                    <div className="px-1 py-0.5 bg-secondary/20 text-secondary-foreground text-xs rounded">
-                      {channel.quality}
+                  <div className="text-muted-foreground text-xs truncate">
+                    {channel.description}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="text-primary text-xs font-medium">
+                      {currentViewers.toLocaleString('tr-TR')} izleyici
                     </div>
-                  )}
+                    {channel.quality && (
+                      <div className="px-1 py-0.5 bg-secondary/20 text-secondary-foreground text-xs rounded">
+                        {channel.quality}
+                      </div>
+                    )}
+                    {channel.status === 'live' && (
+                      <div className="animate-pulse w-2 h-2 bg-primary rounded-full"></div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {channel.category}
                 </div>
               </div>
-
-              <div className="text-xs text-muted-foreground">
-                {channel.category}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {filteredChannels.length === 0 && !isLoading && (
             <div className="text-center py-8 text-muted-foreground">
@@ -145,7 +160,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
       {/* Vertical Ad */}
       <div className="ad-banner h-48">
         <div className="text-center">
-          <span className="text-xs">Advertisement</span>
+          <span className="text-xs">Reklam Alanı</span>
           <br />
           <span className="text-xs">160x600</span>
         </div>
@@ -172,7 +187,7 @@ const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => 
               
               <div className={`px-2 py-1 rounded text-xs font-bold ${
                 match.status === 'live' 
-                  ? 'bg-primary text-primary-foreground' 
+                  ? 'bg-primary text-primary-foreground animate-pulse' 
                   : 'bg-muted text-muted-foreground'
               }`}>
                 {match.status === 'live' ? 'CANLI' : 'Yakında'}

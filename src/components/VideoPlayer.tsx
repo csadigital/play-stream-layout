@@ -66,10 +66,22 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       });
 
       hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
-        console.error('HLS Error:', data);
+        console.error('🚨 HLS Hatası:', data);
         if (data.fatal) {
-          setError(`Streaming error: ${data.details}`);
-          setIsLoading(false);
+          switch (data.type) {
+            case window.Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('📡 Ağ hatası - yeniden denenecek...');
+              hls.startLoad();
+              break;
+            case window.Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('🎥 Medya hatası - kurtarılmaya çalışılıyor...');
+              hls.recoverMediaError();
+              break;
+            default:
+              setError(`Yayın hatası: ${data.details || 'Bilinmeyen hata'}`);
+              setIsLoading(false);
+              break;
+          }
         }
       });
 
@@ -83,13 +95,17 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       // Native HLS support (Safari)
       const streamUrl = getStreamUrl(selectedChannel);
       video.src = streamUrl;
-      video.addEventListener('loadedmetadata', () => setIsLoading(false));
-      video.addEventListener('error', () => {
-        setError('Failed to load stream');
+      video.addEventListener('loadedmetadata', () => {
+        console.log('✅ Video metadatası yüklendi');
+        setIsLoading(false);
+      });
+      video.addEventListener('error', (e) => {
+        console.error('❌ Video yükleme hatası:', e);
+        setError('Yayın yüklenemedi - tarayıcı HLS desteklemiyor');
         setIsLoading(false);
       });
     } else {
-      setError('HLS is not supported in this browser');
+      setError('Bu tarayıcıda HLS desteği bulunmuyor');
       setIsLoading(false);
     }
 

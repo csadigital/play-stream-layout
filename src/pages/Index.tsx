@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import VideoPlayer from '@/components/VideoPlayer';
 import ChannelList from '@/components/ChannelList';
 import LiveChat from '@/components/LiveChat';
 import { Channel } from '@/services/streamingApi';
-import { useStreamingStats } from '@/hooks/useChannels';
+import { useStreamingStats, useChannels } from '@/hooks/useChannels';
 
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const { data: stats } = useStreamingStats();
+  const { data: channels } = useChannels();
 
   const handleChannelSelect = (channel: Channel) => {
     setSelectedChannel(channel);
+    console.log('🎯 Kanal seçildi:', channel.name, '|', channel.url);
   };
+
+  // Log when channels are loaded
+  useEffect(() => {
+    if (channels && channels.length > 0) {
+      console.log(`📺 ${channels.length} kanal yüklendi:`, channels.map(c => c.name).join(', '));
+    }
+  }, [channels]);
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -32,8 +41,11 @@ const Index = () => {
             <div className="flex items-center space-x-4">
               <div className="text-sm text-muted-foreground">
                 🔴 <span className="text-primary font-semibold">
-                  {stats?.total_channels || 'Yükleniyor'} Canlı
+                  {stats?.live_count || channels?.filter(c => c.status === 'live').length || 'Yükleniyor'} Canlı
                 </span>
+              </div>
+              <div className="text-xs text-muted-foreground hidden md:block">
+                Toplam {stats?.total_channels || channels?.length || 0} kanal
               </div>
             </div>
           </div>
@@ -43,7 +55,7 @@ const Index = () => {
         <div className="border-t border-border">
           <div className="container mx-auto px-4 py-2">
             <div className="ad-banner h-20">
-              <span className="text-xs">Advertisement 728x90</span>
+              <span className="text-xs">Reklam Alanı 728x90</span>
             </div>
           </div>
         </div>
@@ -133,7 +145,7 @@ const Index = () => {
       <footer className="bg-background-secondary/80 backdrop-blur-sm border-t border-border mt-8">
         <div className="container mx-auto px-4 py-4">
           <div className="ad-banner h-20">
-            <span className="text-xs">Footer Advertisement 728x90</span>
+            <span className="text-xs">Alt Reklam Alanı 728x90</span>
           </div>
         </div>
       </footer>
