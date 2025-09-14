@@ -4,7 +4,7 @@ import ChannelList from '@/components/ChannelList';
 import LiveChat from '@/components/LiveChat';
 import { Channel } from '@/services/streamingApi';
 import { useStreamingStats, useChannels } from '@/hooks/useChannels';
-
+import BackendSetupBanner from '@/components/BackendSetupBanner';
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const { data: stats } = useStreamingStats();
@@ -60,6 +60,8 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      <BackendSetupBanner />
 
       {/* Main Content */}
       <main className="streaming-grid">

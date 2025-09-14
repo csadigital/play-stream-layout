@@ -1,7 +1,7 @@
 // Direct M3U8 streaming service with PHP backend integration
 import { proxyService } from './proxyService';
 import { channelParser, ParsedChannel } from './channelParser';
-import { BACKEND_BASE_URL } from '@/config/backend';
+import { getBackendBaseUrl } from '@/config/backend';
 
 export interface Channel {
   id: number;
@@ -37,9 +37,7 @@ class StreamingApiService {
   
   constructor() {
     // Backend API base URL
-    this.apiBaseUrl = /^(https?:)\/\//.test(BACKEND_BASE_URL)
-      ? BACKEND_BASE_URL
-      : '';
+    this.apiBaseUrl = getBackendBaseUrl();
     
     // Start real-time viewer updates
     this.startViewerUpdates();

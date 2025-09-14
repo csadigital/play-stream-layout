@@ -58,6 +58,8 @@ class StreamProxy {
             return;
         }
         
+        // Determine action (default to 'proxy' for playlist proxying)
+        $action = $_GET['action'] ?? 'proxy';
         switch ($action) {
             case 'proxy':
             case 'm3u8':
