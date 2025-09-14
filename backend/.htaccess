@@ -1,0 +1,83 @@
+# SportStream Backend .htaccess Configuration
+
+# Enable rewrite engine
+RewriteEngine On
+
+# CORS Headers for all requests
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE, PUT"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+Header always set Access-Control-Max-Age "3600"
+
+# Handle preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# API Routes
+RewriteRule ^api/channels/?$ channels.php [L,QSA]
+RewriteRule ^api/proxy/?$ proxy.php [L,QSA]
+
+# Default proxy for any stream request
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^stream/(.*)$ proxy.php?action=proxy&url=$1 [L,QSA]
+
+# Security Headers
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# Prevent access to sensitive files
+<Files "*.log">
+    Deny from all
+</Files>
+
+<Files "*.json">
+    <RequireAll>
+        Require all granted
+    </RequireAll>
+</Files>
+
+# Cache settings for different file types
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # No cache for PHP files
+    ExpiresByType application/php "access plus 0 seconds"
+    
+    # Cache for media files
+    ExpiresByType video/mp2t "access plus 1 hour"
+    ExpiresByType application/vnd.apple.mpegurl "access plus 5 minutes"
+    
+    # Cache for static files
+    ExpiresByType image/png "access plus 7 days"
+    ExpiresByType image/jpeg "access plus 7 days"
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+</IfModule>
+
+# Gzip compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# Increase limits for streaming
+php_value max_execution_time 0
+php_value memory_limit 256M
+php_value post_max_size 50M
+php_value upload_max_filesize 50M
+
+# Error handling
+php_flag display_errors Off
+php_flag log_errors On
+php_value error_log /var/log/php_errors.log

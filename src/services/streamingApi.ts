@@ -1,4 +1,4 @@
-// Direct M3U8 streaming service with integrated channel parser
+// Direct M3U8 streaming service with PHP backend integration
 import { proxyService } from './proxyService';
 import { channelParser, ParsedChannel } from './channelParser';
 
@@ -25,14 +25,22 @@ export interface StreamStats {
 }
 
 class StreamingApiService {
+  private apiBaseUrl: string;
   private cache: { [key: string]: { data: any; timestamp: number } } = {};
   private cacheTime: number = 60000; // 1 minute cache
   private viewerUpdateInterval: NodeJS.Timeout | null = null;
   private channels: Channel[] = [];
 
   constructor() {
+    // Backend API base URL - update this to your backend server
+    this.apiBaseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://your-domain.com' // Production backend URL
+      : 'http://localhost'; // Development backend URL
+    
     // Start real-time viewer updates
     this.startViewerUpdates();
+    
+    console.log('🔧 StreamingApi initialized with backend:', this.apiBaseUrl);
   }
 
   /**
@@ -78,7 +86,7 @@ class StreamingApiService {
   }
 
   /**
-   * Fetch all available channels using the new parser
+   * Fetch all available channels from PHP backend
    */
   async getChannels(): Promise<Channel[]> {
     const cacheKey = 'channels';
@@ -90,19 +98,35 @@ class StreamingApiService {
     }
 
     try {
-      console.log('🔄 Fetching channels using integrated parser...');
+      console.log('🔄 Fetching channels from PHP backend:', `${this.apiBaseUrl}/api/channels`);
       
-      // Use the new channel parser
-      const response = await channelParser.fetchAndParseChannels();
-      
-      if (!response.success || response.channels.length === 0) {
-        console.log('⚠️ Parser returned no channels, using fallback');
-        this.channels = this.convertParsedChannels(response.channels);
-        return this.channels;
+      // Fetch from PHP backend
+      const response = await fetch(`${this.apiBaseUrl}/api/channels`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status} ${response.statusText}`);
       }
 
-      // Convert parsed channels to our format
-      const channels = this.convertParsedChannels(response.channels);
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.warn('⚠️ Backend returned error:', result.message);
+        // Still try to use the channels if available
+        if (result.channels && result.channels.length > 0) {
+          this.channels = this.convertBackendChannels(result.channels);
+          return this.channels;
+        }
+        throw new Error(result.message || 'Backend returned no channels');
+      }
+
+      // Convert backend channels to our format
+      const channels = this.convertBackendChannels(result.channels);
       
       // Cache the result
       this.cache[cacheKey] = {
@@ -111,17 +135,49 @@ class StreamingApiService {
       };
       
       this.channels = channels;
-      console.log(`✅ Successfully loaded ${channels.length} channels via parser`);
+      console.log(`✅ Successfully loaded ${channels.length} channels from PHP backend`);
       return channels;
       
     } catch (error) {
-      console.error('❌ Channel parser failed:', error);
-      console.log('🔄 Using Turkish demo channels...');
+      console.error('❌ Backend fetch failed:', error);
+      console.log('🔄 Trying fallback methods...');
       
-      // Use working demo channels
+      // Try alternative methods if backend fails
+      try {
+        const response = await channelParser.fetchAndParseChannels();
+        if (response.success && response.channels.length > 0) {
+          this.channels = this.convertParsedChannels(response.channels);
+          console.log('✅ Fallback parser succeeded');
+          return this.channels;
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback parser also failed:', fallbackError);
+      }
+      
+      // Use Turkish demo channels as last resort
+      console.log('🔄 Using demo channels...');
       this.channels = this.getTurkishDemoChannels();
       return this.channels;
     }
+  }
+
+  /**
+   * Convert backend PHP response to our Channel format
+   */
+  private convertBackendChannels(backendChannels: any[]): Channel[] {
+    return backendChannels.map((backend, index) => ({
+      id: backend.id || index + 1,
+      name: backend.name || 'Unknown Channel',
+      category: backend.group || backend.category || 'Spor',
+      logo: backend.logo || this.generatePlaceholderLogo(backend.name || 'Unknown'),
+      url: backend.url || '',
+      viewers: backend.viewers || this.generateRealisticViewerCount('Spor'),
+      description: backend.description || `${backend.name} canlı yayını`,
+      language: 'tr',
+      quality: backend.quality || 'HD',
+      status: backend.status || 'live' as const,
+      number: backend.number
+    }));
   }
 
   /**
@@ -168,38 +224,19 @@ class StreamingApiService {
   }
 
   /**
-   * Get direct stream URL with proxy processing if needed
+   * Get stream URL through PHP backend proxy
    */
   getStreamUrl(channelUrl: string): string {
-    // For M3U8 URLs, we can try to process them through our proxy service
-    if (channelUrl.includes('.m3u8')) {
-      return channelUrl; // Direct M3U8 URL - modern browsers handle this well
-    }
-    
-    // For other stream types, return as is
-    return channelUrl;
+    // Use PHP backend proxy for all streams
+    const encodedUrl = encodeURIComponent(channelUrl);
+    return `${this.apiBaseUrl}/api/proxy?url=${encodedUrl}`;
   }
 
   /**
-   * Process M3U8 URL through proxy service (future enhancement)
+   * Get direct stream URL for testing (bypasses proxy)
    */
-  async processM3U8Stream(channelUrl: string): Promise<string> {
-    try {
-      // Check if URL needs .m3u8 extension
-      const processedUrl = await proxyService.checkAndFixM3U8Url(channelUrl);
-      
-      // If it's a valid M3U8, we can process it
-      if (processedUrl.includes('.m3u8')) {
-        return processedUrl;
-      }
-      
-      // For non-M3U8 streams, create a simple playlist
-      return `data:application/vnd.apple.mpegurl,${encodeURIComponent(proxyService.createSimplePlaylist(channelUrl))}`;
-      
-    } catch (error) {
-      console.error('Stream processing failed:', error);
-      return channelUrl; // Return original URL as fallback
-    }
+  getDirectStreamUrl(channelUrl: string): string {
+    return channelUrl;
   }
 
   /**
