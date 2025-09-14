@@ -2,41 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Sports Streaming Platform Design System */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base Colors - Dark Navy Theme */
+    --background: 225 39% 11%;          /* #121826 - Dark navy */
+    --background-secondary: 240 21% 15%; /* #1a1a2e - Darker navy */
+    --foreground: 210 40% 98%;          /* Near white text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Surface Colors */
+    --card: 225 39% 13%;                /* Slightly lighter than background */
+    --card-foreground: 210 40% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 225 39% 11%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
+    /* Brand Colors */
+    --primary: 348 77% 60%;             /* #e94560 - Red accent */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 205 100% 26%;          /* #0f4c75 - Blue accent */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --success: 152 68% 44%;             /* #21bf73 - Green */
+    --success-foreground: 210 40% 98%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --warning: 48 100% 67%;             /* #ffe066 - Yellow */
+    --warning-foreground: 225 39% 11%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Interactive States */
+    --muted: 225 20% 20%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 348 77% 60%;              /* Same as primary red */
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 348 77% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Borders and Inputs */
+    --border: 225 20% 20%;
+    --input: 225 20% 18%;
+    --ring: 348 77% 60%;
 
-    --radius: 0.5rem;
+    /* Layout */
+    --radius: 0.75rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(205 100% 26%) 0%, hsl(225 39% 11%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(225 39% 11%) 0%, hsl(240 21% 15%) 100%);
+    --gradient-live: linear-gradient(90deg, hsl(348 77% 60%) 0%, hsl(0 84% 60%) 100%);
+
+    /* Shadows */
+    --shadow-player: 0 25px 50px -12px hsl(225 39% 5% / 0.8);
+    --shadow-card: 0 10px 25px -5px hsl(225 39% 5% / 0.4);
+    --shadow-glow: 0 0 30px hsl(348 77% 60% / 0.3);
+
+    /* Animation */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
 
@@ -91,6 +116,91 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+/* Sports Streaming Platform Components */
+@layer components {
+  .streaming-grid {
+    @apply grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] min-h-screen gap-4 p-4;
+  }
+
+  .video-player {
+    @apply relative aspect-video bg-card rounded-lg overflow-hidden;
+    box-shadow: var(--shadow-player);
+  }
+
+  .live-badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-primary-foreground rounded-full;
+    background: var(--gradient-live);
+    animation: pulse-glow 2s infinite;
+  }
+
+  .channel-item {
+    @apply flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-300 hover:bg-muted/50;
+  }
+
+  .channel-item:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .status-dot {
+    @apply w-3 h-3 rounded-full;
+  }
+
+  .status-dot.live {
+    @apply bg-primary;
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.offline {
+    @apply bg-muted-foreground/50;
+  }
+
+  .chat-message {
+    @apply p-2 mb-2 rounded-lg bg-muted/30 text-sm;
+  }
+
+  .chat-message.own {
+    @apply bg-secondary/20 ml-auto max-w-[80%];
+  }
+
+  .ad-banner {
+    @apply bg-muted/20 border border-muted rounded-lg flex items-center justify-center text-muted-foreground;
+  }
+
+  .glow-button {
+    @apply transition-all duration-300 hover:shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:scale-105;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  @keyframes pulse-glow {
+    0%, 100% { 
+      opacity: 1;
+      box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+    }
+    50% { 
+      opacity: 0.8;
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.8);
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out;
   }
 }
 
