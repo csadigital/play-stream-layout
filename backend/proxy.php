@@ -40,12 +40,17 @@ class StreamProxy {
      * Handle incoming requests
      */
     public function handleRequest() {
-        $action = $_GET['action'] ?? 'proxy';
+        // Decode URL parameter properly
         $url = $_GET['url'] ?? '';
         
-        // Decode base64 URL if provided
+        // PHP automatically URL-decodes GET parameters, so we have the original URL
+        // Only try base64 decode if it doesn't look like a valid URL
         if (!empty($url) && !filter_var($url, FILTER_VALIDATE_URL)) {
-            $url = base64_decode($url);
+            // Try base64 decode as fallback
+            $decoded = base64_decode($url, true);
+            if ($decoded !== false && filter_var($decoded, FILTER_VALIDATE_URL)) {
+                $url = $decoded;
+            }
         }
         
         if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {

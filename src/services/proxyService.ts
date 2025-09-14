@@ -2,6 +2,15 @@
 export class ProxyService {
   private cacheTime = 3600000; // 1 hour in milliseconds
   private userAgent = 'VLC/3.0.16';
+  private baseUrl = window.location.origin; // Current domain for proxying
+
+  /**
+   * Get proxied stream URL
+   */
+  getProxiedStreamUrl(originalUrl: string): string {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `${this.baseUrl}/api/proxy?url=${encodedUrl}`;
+  }
 
   /**
    * Cache management using localStorage

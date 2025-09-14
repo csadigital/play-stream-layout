@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, Users, Volume2, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStreamPlayer } from '@/hooks/useChannels';
+import { streamingApi } from '@/services/streamingApi';
 import heroStadium from '@/assets/hero-stadium.jpg';
 
 // HLS.js import
@@ -103,6 +104,9 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       });
 
       hls.attachMedia(video);
+      
+      // Track viewer for this channel
+      streamingApi.trackViewer(selectedChannel.id.toString());
       
       // Load the stream URL through our proxy
       const streamUrl = getStreamUrl(selectedChannel);
