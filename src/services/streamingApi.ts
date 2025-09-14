@@ -30,7 +30,7 @@ class StreamingApiService {
   private cacheTime: number = 60000; // 1 minute cache
   private viewerUpdateInterval: NodeJS.Timeout | null = null;
   private channels: Channel[] = [];
-
+  private backendOnline = false;
   constructor() {
     // Backend API base URL - update this to your backend server
     this.apiBaseUrl = process.env.NODE_ENV === 'production' 
@@ -135,11 +135,13 @@ class StreamingApiService {
       };
       
       this.channels = channels;
+      this.backendOnline = true;
       console.log(`✅ Successfully loaded ${channels.length} channels from PHP backend`);
       return channels;
       
     } catch (error) {
       console.error('❌ Backend fetch failed:', error);
+      this.backendOnline = false;
       console.log('🔄 Trying fallback methods...');
       
       // Try alternative methods if backend fails
@@ -227,7 +229,10 @@ class StreamingApiService {
    * Get stream URL through PHP backend proxy
    */
   getStreamUrl(channelUrl: string): string {
-    // Use PHP backend proxy for all streams
+    // If backend is offline, use direct URL to avoid failed proxy calls
+    if (!this.backendOnline) {
+      return this.getDirectStreamUrl(channelUrl);
+    }
     const encodedUrl = encodeURIComponent(channelUrl);
     return `${this.apiBaseUrl}/api/proxy?url=${encodedUrl}`;
   }

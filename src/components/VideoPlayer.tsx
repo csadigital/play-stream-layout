@@ -19,6 +19,7 @@ interface VideoPlayerProps {
 const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
+  const lastUrlRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isPlaying, volume, isFullscreen, togglePlayPause, setVolume, toggleFullscreen, getStreamUrl } = useStreamPlayer();
@@ -71,7 +72,23 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
           switch (data.type) {
             case window.Hls.ErrorTypes.NETWORK_ERROR:
               console.log('📡 Ağ hatası - yeniden denenecek...');
-              hls.startLoad();
+              // Fallback: if proxy failed, try direct URL once
+              if (
+                data.details === 'manifestLoadError' &&
+                lastUrlRef.current &&
+                lastUrlRef.current.includes('/api/proxy') &&
+                selectedChannel?.url
+              ) {
+                const directUrl = selectedChannel.url;
+                console.log('🔀 Proxy başarısız - direkt akışa geçiliyor:', directUrl);
+                setError(null);
+                setIsLoading(true);
+                hls.loadSource(directUrl);
+                lastUrlRef.current = directUrl;
+                hls.startLoad();
+              } else {
+                hls.startLoad();
+              }
               break;
             case window.Hls.ErrorTypes.MEDIA_ERROR:
               console.log('🎥 Medya hatası - kurtarılmaya çalışılıyor...');
@@ -89,11 +106,13 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       
       // Load the stream URL through our proxy
       const streamUrl = getStreamUrl(selectedChannel);
+      lastUrlRef.current = streamUrl;
       hls.loadSource(streamUrl);
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
       const streamUrl = getStreamUrl(selectedChannel);
+      lastUrlRef.current = streamUrl;
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         console.log('✅ Video metadatası yüklendi');
