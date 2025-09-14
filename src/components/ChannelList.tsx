@@ -1,49 +1,47 @@
-import { Calendar, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, Clock, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import soccerChannel from '@/assets/channel-soccer.jpg';
-import basketballChannel from '@/assets/channel-basketball.jpg';
+import { Input } from '@/components/ui/input';
+import { useChannels } from '@/hooks/useChannels';
+import { Channel } from '@/services/streamingApi';
 
-const ChannelList = () => {
-  const channels = [
-    {
-      id: 1,
-      name: 'Sports Central',
-      game: 'Man United vs Liverpool',
-      viewers: '24.5K',
-      image: soccerChannel,
-      isLive: true,
-    },
-    {
-      id: 2,
-      name: 'Basketball Pro',
-      game: 'Lakers vs Warriors',
-      viewers: '18.2K',
-      image: basketballChannel,
-      isLive: true,
-    },
-    {
-      id: 3,
-      name: 'Football Zone',
-      game: 'NFL Highlights',
-      viewers: '12.8K',
-      image: soccerChannel,
-      isLive: false,
-    },
-    {
-      id: 4,
-      name: 'Tennis Court',
-      game: 'Wimbledon Final',
-      viewers: '9.4K',
-      image: basketballChannel,
-      isLive: false,
-    },
-  ];
+interface ChannelListProps {
+  onChannelSelect?: (channel: Channel) => void;
+  selectedChannel?: Channel | null;
+}
+
+const ChannelList = ({ onChannelSelect, selectedChannel }: ChannelListProps) => {
+  const { data: channels = [], isLoading, error } = useChannels();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Filter channels based on search and category
+  const filteredChannels = channels.filter(channel => {
+    const matchesSearch = channel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         channel.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || channel.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Get unique categories
+  const categories = ['all', ...Array.from(new Set(channels.map(c => c.category)))];
 
   const todaysMatches = [
     { time: '15:30', teams: 'Arsenal vs Chelsea', status: 'upcoming' },
     { time: '18:00', teams: 'Barcelona vs Real Madrid', status: 'live' },
     { time: '20:45', teams: 'Bayern vs Dortmund', status: 'upcoming' },
   ];
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center p-4 bg-destructive/10 rounded-lg">
+          <div className="text-destructive text-sm">Failed to load channels</div>
+          <div className="text-muted-foreground text-xs mt-1">Using fallback channels</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -52,19 +50,60 @@ const ChannelList = () => {
         <span className="text-xs">Advertisement 728x90</span>
       </div>
 
+      {/* Search and Filter */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search channels..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-background-secondary/50 border-muted"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {categories.map(category => (
+            <Button
+              key={category}
+              size="sm"
+              variant={selectedCategory === category ? "default" : "outline"}
+              onClick={() => setSelectedCategory(category)}
+              className="whitespace-nowrap text-xs"
+            >
+              {category === 'all' ? 'All' : category}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Channel List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-foreground">Live Channels</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground">Live Channels</h2>
+          {isLoading && (
+            <div className="text-xs text-muted-foreground">Loading...</div>
+          )}
+        </div>
         
-        <div className="space-y-2">
-          {channels.map((channel) => (
-            <div key={channel.id} className="channel-item">
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {filteredChannels.map((channel) => (
+            <div 
+              key={channel.id} 
+              className={`channel-item ${selectedChannel?.id === channel.id ? 'bg-primary/10 border-primary/20' : ''}`}
+              onClick={() => onChannelSelect?.(channel)}
+            >
               <div className="relative">
-                <div className={`status-dot ${channel.isLive ? 'live' : 'offline'}`} />
+                <div className={`status-dot ${channel.status === 'live' ? 'live' : 'offline'}`} />
                 <img 
-                  src={channel.image} 
+                  src={channel.logo} 
                   alt={channel.name}
                   className="w-12 h-12 rounded-lg object-cover ml-4"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = `https://via.placeholder.com/48x48/238636/ffffff?text=${channel.name.charAt(0)}`;
+                  }}
                 />
               </div>
               
@@ -73,14 +112,33 @@ const ChannelList = () => {
                   {channel.name}
                 </div>
                 <div className="text-muted-foreground text-xs truncate">
-                  {channel.game}
+                  {channel.description}
                 </div>
-                <div className="text-primary text-xs font-medium">
-                  {channel.viewers} viewers
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="text-primary text-xs font-medium">
+                    {channel.viewers.toLocaleString()} viewers
+                  </div>
+                  {channel.quality && (
+                    <div className="px-1 py-0.5 bg-secondary/20 text-secondary-foreground text-xs rounded">
+                      {channel.quality}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                {channel.category}
               </div>
             </div>
           ))}
+
+          {filteredChannels.length === 0 && !isLoading && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <div className="text-sm">No channels found</div>
+              <div className="text-xs">Try adjusting your search or filter</div>
+            </div>
+          )}
         </div>
       </div>
 

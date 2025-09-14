@@ -1,66 +1,270 @@
-import { Play, Users, Volume2, Maximize } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Play, Pause, Users, Volume2, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useStreamPlayer } from '@/hooks/useChannels';
 import heroStadium from '@/assets/hero-stadium.jpg';
 
-const VideoPlayer = () => {
+// HLS.js import
+declare global {
+  interface Window {
+    Hls: any;
+  }
+}
+
+interface VideoPlayerProps {
+  selectedChannel?: any;
+  onChannelSelect?: (channel: any) => void;
+}
+
+const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { isPlaying, volume, isFullscreen, togglePlayPause, setVolume, toggleFullscreen, getStreamUrl } = useStreamPlayer();
+
+  // Load HLS.js dynamically
+  useEffect(() => {
+    const loadHls = async () => {
+      if (!window.Hls) {
+        const Hls = await import('hls.js');
+        window.Hls = Hls.default;
+      }
+    };
+    loadHls();
+  }, []);
+
+  // Initialize HLS when channel changes
+  useEffect(() => {
+    if (!selectedChannel || !videoRef.current || !window.Hls) return;
+
+    const video = videoRef.current;
+    setIsLoading(true);
+    setError(null);
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+    }
+
+    if (window.Hls.isSupported()) {
+      const hls = new window.Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90,
+      });
+
+      hlsRef.current = hls;
+
+      hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+        console.log('Video and HLS.js are now bound together');
+      });
+
+      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+        console.log('Manifest loaded, found levels:', hls.levels);
+        setIsLoading(false);
+      });
+
+      hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
+        console.error('HLS Error:', data);
+        if (data.fatal) {
+          setError(`Streaming error: ${data.details}`);
+          setIsLoading(false);
+        }
+      });
+
+      hls.attachMedia(video);
+      
+      // Load the stream URL through our proxy
+      const streamUrl = getStreamUrl(selectedChannel);
+      hls.loadSource(streamUrl);
+
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      const streamUrl = getStreamUrl(selectedChannel);
+      video.src = streamUrl;
+      video.addEventListener('loadedmetadata', () => setIsLoading(false));
+      video.addEventListener('error', () => {
+        setError('Failed to load stream');
+        setIsLoading(false);
+      });
+    } else {
+      setError('HLS is not supported in this browser');
+      setIsLoading(false);
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+      }
+    };
+  }, [selectedChannel, getStreamUrl]);
+
+  // Handle play/pause
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    if (isPlaying) {
+      videoRef.current.play().catch(console.error);
+    } else {
+      videoRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  // Handle volume changes
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  const handlePlayPause = () => {
+    togglePlayPause();
+  };
+
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(Math.max(0, Math.min(1, newVolume)));
+  };
+
   return (
-    <div className="video-player">
-      {/* Video Content */}
-      <div className="absolute inset-0">
-        <img 
-          src={heroStadium} 
-          alt="Live Sports Stream" 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/20" />
-      </div>
+    <div className={`video-player ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+      {/* Video Element */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        controls={false}
+        playsInline
+        muted={false}
+      />
+
+      {/* Fallback Background Image */}
+      {!selectedChannel && (
+        <div className="absolute inset-0">
+          <img 
+            src={heroStadium} 
+            alt="Sports streaming platform" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="text-white text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2" />
+            <div className="text-sm">Loading stream...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="text-white text-center p-4">
+            <div className="text-red-400 mb-2">⚠️ Stream Error</div>
+            <div className="text-sm">{error}</div>
+          </div>
+        </div>
+      )}
 
       {/* Live Badge */}
-      <div className="absolute top-4 left-4">
-        <div className="live-badge">
-          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-          LIVE
+      {selectedChannel && selectedChannel.status === 'live' && (
+        <div className="absolute top-4 left-4">
+          <div className="live-badge">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            LIVE
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Channel Quality Badge */}
+      {selectedChannel?.quality && (
+        <div className="absolute top-4 left-24">
+          <div className="px-2 py-1 bg-black/50 text-white text-xs font-bold rounded">
+            {selectedChannel.quality}
+          </div>
+        </div>
+      )}
 
       {/* Viewer Count */}
-      <div className="absolute top-4 right-4">
-        <div className="flex items-center gap-2 px-3 py-1 bg-black/50 rounded-full text-white text-sm">
-          <Users className="w-4 h-4" />
-          <span className="font-semibold">24,583</span>
+      {selectedChannel && (
+        <div className="absolute top-4 right-4">
+          <div className="flex items-center gap-2 px-3 py-1 bg-black/50 rounded-full text-white text-sm">
+            <Users className="w-4 h-4" />
+            <span className="font-semibold">{selectedChannel.viewers.toLocaleString()}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Play Button Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Button 
-          size="lg" 
-          className="w-20 h-20 rounded-full bg-black/50 hover:bg-black/70 border-2 border-white/20 backdrop-blur-sm glow-button"
-        >
-          <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
-        </Button>
-      </div>
+      {!isPlaying && selectedChannel && !isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Button 
+            size="lg" 
+            onClick={handlePlayPause}
+            className="w-20 h-20 rounded-full bg-black/50 hover:bg-black/70 border-2 border-white/20 backdrop-blur-sm glow-button"
+          >
+            <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+          </Button>
+        </div>
+      )}
 
       {/* Bottom Controls */}
       <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" className="text-white hover:bg-white/10">
+        <div className="flex items-center gap-4">
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            onClick={handlePlayPause}
+            className="text-white hover:bg-white/10"
+          >
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          </Button>
+          
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="text-white hover:bg-white/10"
+            onClick={() => handleVolumeChange(volume > 0 ? 0 : 1)}
+          >
             <Volume2 className="w-4 h-4" />
           </Button>
+
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={volume}
+            onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+            className="w-20 h-1 bg-white/20 rounded-lg appearance-none slider"
+          />
+          
           <div className="text-white text-sm font-medium">
-            Manchester United vs Liverpool FC
+            {selectedChannel ? selectedChannel.name : 'Select a channel to start watching'}
           </div>
         </div>
         
-        <Button size="sm" variant="ghost" className="text-white hover:bg-white/10">
-          <Maximize className="w-4 h-4" />
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          onClick={toggleFullscreen}
+          className="text-white hover:bg-white/10"
+        >
+          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
         </Button>
       </div>
 
-      {/* Progress Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
-        <div className="h-full w-1/3 bg-primary" />
-      </div>
+      {/* Channel Info */}
+      {selectedChannel && (
+        <div className="absolute bottom-16 left-4 text-white text-sm">
+          <div className="bg-black/50 rounded px-2 py-1">
+            {selectedChannel.description}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
