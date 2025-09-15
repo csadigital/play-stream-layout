@@ -415,10 +415,6 @@ class StreamingApiService {
       }
     } catch {}
 
-    // Enforce HTTPS on HTTPS pages to avoid mixed content
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
-      url = url.replace(/^http:\/\//, 'https://');
-    }
     return url;
   }
 
