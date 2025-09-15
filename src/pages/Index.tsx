@@ -125,13 +125,18 @@ const Index = () => {
               </div>
             )}
 
-            {!selectedChannel && (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="text-6xl mb-4">📺</div>
-                <div className="text-lg font-semibold mb-2">SportStream'e Hoş Geldiniz</div>
-                <div className="text-sm">Canlı spor izlemeye başlamak için sol kenar çubuğundan bir kanal seçin</div>
-              </div>
-            )}
+      {!selectedChannel && (
+        <div className="text-center py-8 text-muted-foreground">
+          <div className="text-6xl mb-4">📺</div>
+          <div className="text-lg font-semibold mb-2">SportStream'e Hoş Geldiniz</div>
+          <div className="text-sm">
+            {channels?.length === 0 
+              ? 'Kanal listesi yüklenemedi. Lütfen M3U URL\'ini kontrol edin.' 
+              : 'Canlı spor izlemeye başlamak için sol kenar çubuğundan bir kanal seçin'
+            }
+          </div>
+        </div>
+      )}
           </div>
 
           {/* Mobil Sekmeler */}

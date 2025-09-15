@@ -342,81 +342,15 @@ export class ChannelParserService {
   }
 
   /**
-   * Fallback channels when parsing fails
+   * Fallback channels when parsing fails - return empty array (no demo channels)
    */
   private getFallbackChannels(): ChannelResponse {
     return {
       success: false,
-      message: 'Kanal listesi alınamadı, varsayılan kanallar kullanılıyor',
-      count: 5,
+      message: 'Gerçek kanal listesi alınamadı',
+      count: 0,
       timestamp: Date.now(),
-      channels: [
-        {
-          id: 1,
-          name: 'beIN Sports 1 HD',
-          number: 1,
-          url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8',
-          group: 'Spor',
-          logo: 'https://via.placeholder.com/48x48/dc2626/ffffff?text=B1',
-          viewers: 25000,
-          status: 'live' as const,
-          quality: 'HD',
-          description: 'beIN Sports 1 canlı spor yayını',
-          category: 'Spor'
-        },
-        {
-          id: 2,
-          name: 'beIN Sports 2 HD',
-          number: 2,
-          url: 'https://trkvz-live.daioncdn.net/aspor/aspor.m3u8',
-          group: 'Spor',
-          logo: 'https://via.placeholder.com/48x48/2563eb/ffffff?text=B2',
-          viewers: 20000,
-          status: 'live' as const,
-          quality: 'HD',
-          description: 'beIN Sports 2 canlı spor yayını',
-          category: 'Spor'
-        },
-        {
-          id: 3,
-          name: 'TRT Spor HD',
-          number: 'TRT',
-          url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8',
-          group: 'Spor',
-          logo: 'https://via.placeholder.com/48x48/059669/ffffff?text=T',
-          viewers: 18000,
-          status: 'live' as const,
-          quality: 'HD',
-          description: 'TRT Spor canlı yayını',
-          category: 'Spor'
-        },
-        {
-          id: 4,
-          name: 'A Spor HD',
-          number: 'A',
-          url: 'https://trkvz-live.daioncdn.net/aspor/aspor.m3u8',
-          group: 'Spor',
-          logo: 'https://via.placeholder.com/48x48/db2777/ffffff?text=A',
-          viewers: 15000,
-          status: 'live' as const,
-          quality: 'HD',
-          description: 'A Spor canlı yayını',
-          category: 'Spor'
-        },
-        {
-          id: 5,
-          name: 'Smart Spor HD',
-          number: 'SM',
-          url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8',
-          group: 'Spor',
-          logo: 'https://via.placeholder.com/48x48/ef4444/ffffff?text=S',
-          viewers: 12000,
-          status: 'live' as const,
-          quality: 'HD',
-          description: 'Smart Spor canlı yayını',
-          category: 'Spor'
-        }
-      ]
+      channels: []
     };
   }
 

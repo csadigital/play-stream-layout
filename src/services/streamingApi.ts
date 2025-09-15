@@ -184,9 +184,9 @@ class StreamingApiService {
       console.error('❌ M3U parsing failed:', error);
     }
     
-    // Use Turkish demo channels as fallback
-    console.log('🔄 Using demo channels...');
-    this.channels = this.getTurkishDemoChannels();
+    // No demo channels - return empty array if real data fails
+    console.log('❌ Real channel data could not be loaded');
+    this.channels = [];
     return this.channels;
   }
 
@@ -438,144 +438,6 @@ class StreamingApiService {
     });
     
     return fixed;
-  }
-
-  /**
-   * Get working Turkish demo channels with real streaming URLs
-   */
-  private getTurkishDemoChannels(): Channel[] {
-    return [
-      {
-        id: 1,
-        name: 'TRT Spor HD',
-        category: 'Spor',
-        logo: 'https://via.placeholder.com/48x48/dc2626/ffffff?text=TS',
-        url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8',
-        viewers: this.generateRealisticViewerCount('Spor'),
-        description: 'TRT Spor canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'TRT'
-      },
-      {
-        id: 2,
-        name: 'A Spor HD',
-        category: 'Spor',
-        logo: 'https://via.placeholder.com/48x48/2563eb/ffffff?text=AS',
-        url: 'https://trkvz-live.daioncdn.net/aspor/aspor.m3u8',
-        viewers: this.generateRealisticViewerCount('Spor'),
-        description: 'A Spor canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'A'
-      },
-      {
-        id: 3,
-        name: 'TRT 1 HD',
-        category: 'Genel',
-        logo: 'https://via.placeholder.com/48x48/059669/ffffff?text=T1',
-        url: 'https://tv-trt1.medya.trt.com.tr/master.m3u8',
-        viewers: this.generateRealisticViewerCount('Genel'),
-        description: 'TRT 1 canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 1
-      },
-      {
-        id: 4,
-        name: 'Show TV',
-        category: 'Eğlence',
-        logo: 'https://via.placeholder.com/48x48/db2777/ffffff?text=ST',
-        url: 'https://ciner-live.daioncdn.net/showtv/showtv.m3u8',
-        viewers: this.generateRealisticViewerCount('Eğlence'),
-        description: 'Show TV canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'SH'
-      },
-      {
-        id: 5,
-        name: 'CNN Türk',
-        category: 'Haber',
-        logo: 'https://via.placeholder.com/48x48/ef4444/ffffff?text=CN',
-        url: 'https://live.duhnet.tv/S2/HLS_LIVE/cnnturknp/track_4_1000/playlist.m3u8',
-        viewers: this.generateRealisticViewerCount('Haber'),
-        description: 'CNN Türk canlı haber yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'CNN'
-      },
-      {
-        id: 6,
-        name: 'TRT Haber',
-        category: 'Haber',
-        logo: 'https://via.placeholder.com/48x48/b91c1c/ffffff?text=TH',
-        url: 'https://tv-trthaber.medya.trt.com.tr/master.m3u8',
-        viewers: this.generateRealisticViewerCount('Haber'),
-        description: 'TRT Haber canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'TH'
-      },
-      {
-        id: 7,
-        name: 'TRT Çocuk',
-        category: 'Çocuk',
-        logo: 'https://via.placeholder.com/48x48/f59e0b/ffffff?text=TÇ',
-        url: 'https://tv-trtcocuk.medya.trt.com.tr/master.m3u8',
-        viewers: this.generateRealisticViewerCount('Çocuk'),
-        description: 'TRT Çocuk canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'TÇ'
-      },
-      {
-        id: 8,
-        name: 'TRT Müzik',
-        category: 'Müzik',
-        logo: 'https://via.placeholder.com/48x48/8b5cf6/ffffff?text=TM',
-        url: 'https://tv-trtmuzik.medya.trt.com.tr/master.m3u8',
-        viewers: this.generateRealisticViewerCount('Müzik'),
-        description: 'TRT Müzik canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'TM'
-      },
-      {
-        id: 9,
-        name: 'beIN Sports 1 HD',
-        category: 'Spor',
-        logo: 'https://via.placeholder.com/48x48/dc2626/ffffff?text=B1',
-        url: 'https://tv-trtspor.medya.trt.com.tr/master.m3u8', // Fallback URL
-        viewers: this.generateRealisticViewerCount('Spor'),
-        description: 'beIN Sports 1 canlı spor yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 1
-      },
-      {
-        id: 10,
-        name: 'Smart Spor HD',
-        category: 'Spor',
-        logo: 'https://via.placeholder.com/48x48/059669/ffffff?text=SS',
-        url: 'https://trkvz-live.daioncdn.net/aspor/aspor.m3u8', // Fallback URL
-        viewers: this.generateRealisticViewerCount('Spor'),
-        description: 'Smart Spor canlı yayını',
-        status: 'live' as const,
-        quality: 'HD',
-        language: 'tr',
-        number: 'SS'
-      }
-    ];
   }
 
   /**
