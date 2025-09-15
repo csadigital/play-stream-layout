@@ -72,10 +72,13 @@ class InvisibleProxyService {
       });
 
       // Send message to service worker
-      navigator.serviceWorker.controller?.postMessage({
-        type: 'REGISTER_STREAM',
-        originalUrl
-      }, [channel.port2]);
+      (this.worker || navigator.serviceWorker.controller)?.postMessage(
+        {
+          type: 'REGISTER_STREAM',
+          originalUrl,
+        },
+        [channel.port2]
+      );
 
       const proxyUrl = await registrationPromise;
       

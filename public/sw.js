@@ -8,9 +8,8 @@ const PROXY_BASE = '/api/stream';
 
 // CORS proxy endpoints (kept internal)
 const CORS_PROXIES = [
-  'https://api.codetabs.com/v1/proxy?quest=',
   'https://api.allorigins.win/raw?url=',
-  'https://cors-anywhere.herokuapp.com/',
+  'https://api.codetabs.com/v1/proxy?request='
 ];
 
 // Internal URL mappings (hidden from network)
@@ -58,6 +57,12 @@ async function handleProxyRequest(request) {
       // Handle segment requests: /api/stream/segment/{id}
       const segmentId = pathParts[4];
       return await handleSegmentRequest(segmentId);
+    }
+
+    if (pathParts[3] === 'key') {
+      // Handle key requests: /api/stream/key/{id}
+      const keyId = pathParts[4];
+      return await handleKeyRequest(keyId);
     }
     
     return new Response('Not Found', { status: 404 });
@@ -132,36 +137,66 @@ async function handleSegmentRequest(segmentId) {
 }
 
 /**
+ * Handle key requests
+ */
+async function handleKeyRequest(keyId) {
+  try {
+    const realUrl = URL_MAPPINGS.get(keyId);
+    if (!realUrl) {
+      return new Response('Key not found', { status: 404 });
+    }
+
+    const data = await fetchThroughProxyBinary(realUrl);
+    if (!data) {
+      return new Response('Failed to fetch key', { status: 502 });
+    }
+
+    return new Response(data, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+      }
+    });
+  } catch (error) {
+    console.error('Key request error:', error);
+    return new Response('Key Error', { status: 500 });
+  }
+}
+
+/**
  * Fetch content through CORS proxies
  */
 async function fetchThroughProxy(url) {
-  // Try direct fetch first
-  try {
-    const response = await fetch(url);
-    if (response.ok) {
-      return await response.text();
+  const isHttp = url.startsWith('http://');
+
+  // For HTTPS upstreams, try direct fetch first
+  if (!isHttp) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const text = await response.text();
+        if (isValidContent(text)) return text;
+      }
+    } catch (e) {
+      // Ignore and try proxies
     }
-  } catch (e) {
-    // Ignore, try proxies
   }
-  
-  // Try each proxy
+
+  // Use HTTPS CORS proxies to avoid mixed-content for http upstreams
   for (const proxy of CORS_PROXIES) {
     try {
       const proxyUrl = proxy + encodeURIComponent(url);
       const response = await fetch(proxyUrl);
-      
       if (response.ok) {
-        const content = await response.text();
-        if (isValidContent(content)) {
-          return content;
-        }
+        const text = await response.text();
+        if (isValidContent(text)) return text;
       }
     } catch (e) {
       continue;
     }
   }
-  
+
   return null;
 }
 
@@ -169,22 +204,25 @@ async function fetchThroughProxy(url) {
  * Fetch binary content (for segments)
  */
 async function fetchThroughProxyBinary(url) {
-  // Try direct fetch first
-  try {
-    const response = await fetch(url);
-    if (response.ok) {
-      return await response.arrayBuffer();
+  const isHttp = url.startsWith('http://');
+
+  // For HTTPS upstreams, try direct fetch first
+  if (!isHttp) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return await response.arrayBuffer();
+      }
+    } catch (e) {
+      // Ignore and try proxies
     }
-  } catch (e) {
-    // Ignore, try proxies
   }
   
-  // Try each proxy
+  // Use HTTPS CORS proxies to avoid mixed-content
   for (const proxy of CORS_PROXIES) {
     try {
       const proxyUrl = proxy + encodeURIComponent(url);
       const response = await fetch(proxyUrl);
-      
       if (response.ok) {
         return await response.arrayBuffer();
       }
@@ -203,31 +241,75 @@ function processM3U8Content(content, originalUrl, streamId) {
   const lines = content.split('\n');
   const baseUrl = getBaseUrl(originalUrl);
   const processedLines = [];
-  
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
-      processedLines.push(trimmedLine);
-    } else {
-      // This is a segment URL
-      let segmentUrl = trimmedLine;
-      
-      // Convert relative URLs to absolute
-      if (!segmentUrl.startsWith('http')) {
-        segmentUrl = baseUrl + segmentUrl.replace(/^\//, '');
+  let lastTag = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    if (!line) {
+      processedLines.push(line);
+      continue;
+    }
+
+    if (line.startsWith('#')) {
+      // Rewrite key URI if present
+      if (line.startsWith('#EXT-X-KEY')) {
+        const match = line.match(/URI="([^"]+)"/i);
+        if (match) {
+          let keyUrl = match[1];
+          if (!keyUrl.startsWith('http')) {
+            keyUrl = baseUrl + keyUrl.replace(/^\//, '');
+          }
+          const keyId = generateId();
+          URL_MAPPINGS.set(keyId, keyUrl);
+          const proxied = line.replace(/URI="([^"]+)"/i, `URI="${PROXY_BASE}/key/${keyId}"`);
+          processedLines.push(proxied);
+        } else {
+          processedLines.push(line);
+        }
+        lastTag = 'KEY';
+        continue;
       }
-      
-      // Create internal mapping for this segment
-      const segmentId = generateId();
-      URL_MAPPINGS.set(segmentId, segmentUrl);
-      
-      // Use internal proxy URL
-      const proxyUrl = `${PROXY_BASE}/segment/${segmentId}`;
-      processedLines.push(proxyUrl);
+
+      if (line.startsWith('#EXT-X-STREAM-INF')) {
+        lastTag = 'STREAM-INF';
+      } else if (line.startsWith('#EXTINF')) {
+        lastTag = 'EXTINF';
+      } else {
+        lastTag = '';
+      }
+
+      processedLines.push(line);
+      continue;
+    }
+
+    // Non-comment line: either a child manifest (after STREAM-INF) or a media segment
+    let targetUrl = line;
+    if (!targetUrl.startsWith('http')) {
+      targetUrl = baseUrl + targetUrl.replace(/^\//, '');
+    }
+
+    const id = generateId();
+    URL_MAPPINGS.set(id, targetUrl);
+
+    if (lastTag === 'STREAM-INF') {
+      processedLines.push(`${PROXY_BASE}/manifest/${id}`);
+    } else {
+      processedLines.push(`${PROXY_BASE}/segment/${id}`);
+    }
+
+    // Reset tag when consumed
+    if (lastTag === 'STREAM-INF' || lastTag === 'EXTINF') {
+      lastTag = '';
     }
   }
-  
+
+  // Ensure header exists
+  if (!processedLines.length || !processedLines[0]?.startsWith('#EXTM3U')) {
+    processedLines.unshift('#EXTM3U');
+  }
+
   return processedLines.join('\n');
 }
 
@@ -274,11 +356,10 @@ function getBaseUrl(url) {
  * Validate content
  */
 function isValidContent(content) {
-  return content && 
-         content.length > 10 &&
-         !content.toLowerCase().includes('<!doctype html') &&
-         !content.includes('Access Denied') &&
-         !content.includes('403 Forbidden');
+  if (!content || content.length < 10) return false;
+  const lower = content.toLowerCase();
+  if (lower.includes('<!doctype html') || content.includes('Access Denied') || content.includes('403 Forbidden')) return false;
+  return content.includes('#EXTM3U');
 }
 
 /**
