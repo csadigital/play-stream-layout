@@ -50,13 +50,14 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
     }
 
     if (window.Hls.isSupported()) {
-      // Custom loader to route HTTP through AllOrigins raw on HTTPS pages
+      // Custom loader to route HTTP through a CORS proxy on HTTPS pages
       const ProxyLoader = class extends window.Hls.DefaultConfig.loader {
         load(context: any, config: any, callbacks: any) {
           const originalUrl = context.url as string;
           let mappedUrl = originalUrl;
           if (window.location.protocol === 'https:' && originalUrl.startsWith('http://')) {
-            mappedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+            // Use isomorphic-git CORS proxy (better CORS headers than AllOrigins raw)
+            mappedUrl = `https://cors.isomorphic-git.org/${originalUrl}`;
           }
           const newContext = { ...context, url: mappedUrl };
           // @ts-ignore
@@ -146,7 +147,7 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       const streamUrl = getStreamUrl(selectedChannel);
       lastUrlRef.current = streamUrl;
       const safeUrl = (window.location.protocol === 'https:' && streamUrl.startsWith('http://'))
-        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(streamUrl)}`
+        ? `https://cors.isomorphic-git.org/${streamUrl}`
         : streamUrl;
       video.src = safeUrl;
       video.addEventListener('loadedmetadata', () => {
