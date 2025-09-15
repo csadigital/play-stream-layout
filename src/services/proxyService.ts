@@ -63,50 +63,67 @@ export class ProxyService {
     try {
       console.log('🌐 Fetching M3U8:', url);
       
-      // Try multiple methods
+      // Try multiple methods with HTTPS safety
       let content = '';
-      
-      // Method 1: Direct fetch
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': '*/*',
-            'User-Agent': this.userAgent,
-            'Connection': 'keep-alive'
-          },
-          mode: 'cors'
-        });
-        
-        if (response.ok) {
-          content = await response.text();
-          if (content.includes('#EXTM3U')) {
-            console.log('✅ Direct fetch successful');
+      const preferAllOrigins = window.location.protocol === 'https:' && url.startsWith('http://');
+
+      // Helper: decode AllOrigins base64 data URLs
+      const decodeAllOrigins = (val: string): string => {
+        if (!val) return '';
+        if (val.startsWith('data:')) {
+          const idx = val.indexOf('base64,');
+          if (idx !== -1) {
+            const b64 = val.substring(idx + 7);
+            try { return atob(b64); } catch { return ''; }
           }
         }
-      } catch (directError) {
-        console.log('⚠️ Direct fetch failed:', directError.message);
-      }
-
-      // Method 2: AllOrigins proxy
-      if (!content || !content.includes('#EXTM3U')) {
+        return val;
+      };
+      
+      // Prefer AllOrigins first when on HTTPS pulling HTTP (avoid Mixed Content)
+      if (preferAllOrigins) {
         try {
           const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
           const response = await fetch(proxyUrl);
-          
           if (response.ok) {
             const data = await response.json();
-            if (data.contents && data.contents.includes('#EXTM3U')) {
-              content = data.contents;
+            const extracted = decodeAllOrigins(data.contents || '');
+            if (extracted && extracted.includes('#EXTM3U')) {
+              content = extracted;
               console.log('✅ AllOrigins proxy successful');
             }
           }
-        } catch (proxyError) {
-          console.log('⚠️ AllOrigins proxy failed:', proxyError.message);
+        } catch (proxyError: any) {
+          console.log('⚠️ AllOrigins proxy failed:', proxyError?.message || proxyError);
+        }
+      }
+      
+      // Method: Direct fetch (try HTTPS upgrade if needed)
+      if (!content || !content.includes('#EXTM3U')) {
+        try {
+          const directUrl = preferAllOrigins ? url.replace(/^http:\/\//, 'https://') : url;
+          const response = await fetch(directUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+              'User-Agent': this.userAgent,
+              'Connection': 'keep-alive'
+            },
+            mode: 'cors'
+          });
+          if (response.ok) {
+            const txt = await response.text();
+            if (txt && txt.includes('#EXTM3U')) {
+              content = txt;
+              console.log('✅ Direct fetch successful');
+            }
+          }
+        } catch (directError: any) {
+          console.log('⚠️ Direct fetch failed:', directError?.message || directError);
         }
       }
 
-      // Method 3: CORS Anywhere
+      // Fallback: CORS Anywhere (often rate-limited)
       if (!content || !content.includes('#EXTM3U')) {
         try {
           const corsUrl = `https://cors-anywhere.herokuapp.com/${url}`;
@@ -116,7 +133,6 @@ export class ProxyService {
               'User-Agent': this.userAgent
             }
           });
-          
           if (response.ok) {
             const corsContent = await response.text();
             if (corsContent.includes('#EXTM3U')) {
@@ -124,8 +140,8 @@ export class ProxyService {
               console.log('✅ CORS Anywhere successful');
             }
           }
-        } catch (corsError) {
-          console.log('⚠️ CORS Anywhere failed:', corsError.message);
+        } catch (corsError: any) {
+          console.log('⚠️ CORS Anywhere failed:', corsError?.message || corsError);
         }
       }
 

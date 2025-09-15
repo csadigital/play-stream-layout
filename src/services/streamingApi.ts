@@ -403,17 +403,22 @@ class StreamingApiService {
 
       // Pattern: /<user>/<pass>/<id>
       if (parts.length === 3 && /^\d+$/.test(parts[2]) && !url.includes('.m3u8')) {
-        return `${u.protocol}//${u.host}/live/${parts[0]}/${parts[1]}/${parts[2]}.m3u8`;
+        url = `${u.protocol}//${u.host}/live/${parts[0]}/${parts[1]}/${parts[2]}.m3u8`;
       }
 
       // Pattern: /live/<user>/<pass>/<id>
       if (parts.length >= 4 && parts[0] === 'live') {
         const idPart = parts[3];
         if (!idPart.endsWith('.m3u8') && /^\d+$/.test(idPart)) {
-          return `${u.protocol}//${u.host}/live/${parts[1]}/${parts[2]}/${idPart}.m3u8`;
+          url = `${u.protocol}//${u.host}/live/${parts[1]}/${parts[2]}/${idPart}.m3u8`;
         }
       }
     } catch {}
+
+    // Enforce HTTPS on HTTPS pages to avoid mixed content
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+      url = url.replace(/^http:\/\//, 'https://');
+    }
     return url;
   }
 
