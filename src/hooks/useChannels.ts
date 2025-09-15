@@ -85,7 +85,9 @@ export const useStreamPlayer = () => {
   };
 
   const getStreamUrl = (channel: Channel) => {
-    return streamingApi.getStreamUrl(channel.url);
+    // Use backend proxy to serve the stream through our own host
+    const proxyUrl = `/backend/proxy.php?action=proxy&url=${encodeURIComponent(channel.url)}`;
+    return proxyUrl;
   };
 
   return {

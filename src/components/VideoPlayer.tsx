@@ -50,26 +50,11 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
     }
 
     if (window.Hls.isSupported()) {
-      // Custom loader to route HTTP through a CORS proxy on HTTPS pages
-      const ProxyLoader = class extends window.Hls.DefaultConfig.loader {
-        load(context: any, config: any, callbacks: any) {
-          const originalUrl = context.url as string;
-          let mappedUrl = originalUrl;
-          if (window.location.protocol === 'https:' && originalUrl.startsWith('http://')) {
-            // Use isomorphic-git CORS proxy (better CORS headers than AllOrigins raw)
-            mappedUrl = `https://cors.isomorphic-git.org/${originalUrl}`;
-          }
-          const newContext = { ...context, url: mappedUrl };
-          // @ts-ignore
-          super.load(newContext, config, callbacks);
-        }
-      };
 
       const hls = new window.Hls({
         enableWorker: true,
         lowLatencyMode: true,
         backBufferLength: 90,
-        loader: ProxyLoader,
       });
 
       hlsRef.current = hls;
@@ -146,10 +131,7 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       // Native HLS support (Safari)
       const streamUrl = getStreamUrl(selectedChannel);
       lastUrlRef.current = streamUrl;
-      const safeUrl = (window.location.protocol === 'https:' && streamUrl.startsWith('http://'))
-        ? `https://cors.isomorphic-git.org/${streamUrl}`
-        : streamUrl;
-      video.src = safeUrl;
+      video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         console.log('✅ Video metadatası yüklendi');
         setIsLoading(false);

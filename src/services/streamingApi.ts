@@ -253,11 +253,12 @@ class StreamingApiService {
   }
 
   /**
-   * Get direct stream URL - auto-convert Xtream Codes URLs to HLS .m3u8
+   * Get stream URL through backend proxy to avoid CORS and mixed content issues
    */
   getStreamUrl(channelUrl: string): string {
-    const hlsUrl = this.toHlsIfXtream(channelUrl);
-    return hlsUrl;
+    // Use backend proxy to serve the stream through our own host
+    const proxyUrl = `/backend/proxy.php?action=proxy&url=${encodeURIComponent(channelUrl)}`;
+    return proxyUrl;
   }
 
   /**
