@@ -4,6 +4,7 @@ import ChannelList from '@/components/ChannelList';
 import LiveChat from '@/components/LiveChat';
 import { Channel } from '@/services/streamingApi';
 import { useStreamingStats, useChannels } from '@/hooks/useChannels';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const { data: stats } = useStreamingStats();
@@ -63,7 +64,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="streaming-grid">
         {/* Left Sidebar - Channel List */}
-        <aside className="space-y-4">
+        <aside className="space-y-4 hidden md:block">
           <ChannelList 
             onChannelSelect={handleChannelSelect}
             selectedChannel={selectedChannel}
@@ -132,10 +133,29 @@ const Index = () => {
               </div>
             )}
           </div>
+
+          {/* Mobil Sekmeler */}
+          <div className="md:hidden">
+            <Tabs defaultValue="channels" className="w-full">
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="channels">Kanallar</TabsTrigger>
+                <TabsTrigger value="chat">Sohbet</TabsTrigger>
+              </TabsList>
+              <TabsContent value="channels" className="pt-4">
+                <ChannelList 
+                  onChannelSelect={handleChannelSelect}
+                  selectedChannel={selectedChannel}
+                />
+              </TabsContent>
+              <TabsContent value="chat" className="pt-4">
+                <LiveChat />
+              </TabsContent>
+            </Tabs>
+          </div>
         </section>
 
         {/* Right Sidebar - Chat & Ads */}
-        <aside className="space-y-4">
+        <aside className="space-y-4 hidden md:block">
           <LiveChat />
         </aside>
       </main>

@@ -253,10 +253,11 @@ class StreamingApiService {
   }
 
   /**
-   * Get direct stream URL - no proxy needed
+   * Get direct stream URL - auto-convert Xtream Codes URLs to HLS .m3u8
    */
   getStreamUrl(channelUrl: string): string {
-    return channelUrl;
+    const hlsUrl = this.toHlsIfXtream(channelUrl);
+    return hlsUrl;
   }
 
   /**
@@ -387,6 +388,33 @@ class StreamingApiService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Convert Xtream Codes style URLs to HLS (.m3u8) when possible
+   * Examples:
+   *  - http://host/user/pass/421525            -> http://host/live/user/pass/421525.m3u8
+   *  - http://host/live/user/pass/421525       -> http://host/live/user/pass/421525.m3u8
+   */
+  private toHlsIfXtream(url: string): string {
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.split('/').filter(Boolean);
+
+      // Pattern: /<user>/<pass>/<id>
+      if (parts.length === 3 && /^\d+$/.test(parts[2]) && !url.includes('.m3u8')) {
+        return `${u.protocol}//${u.host}/live/${parts[0]}/${parts[1]}/${parts[2]}.m3u8`;
+      }
+
+      // Pattern: /live/<user>/<pass>/<id>
+      if (parts.length >= 4 && parts[0] === 'live') {
+        const idPart = parts[3];
+        if (!idPart.endsWith('.m3u8') && /^\d+$/.test(idPart)) {
+          return `${u.protocol}//${u.host}/live/${parts[1]}/${parts[2]}/${idPart}.m3u8`;
+        }
+      }
+    } catch {}
+    return url;
   }
 
   /**
