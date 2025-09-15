@@ -253,12 +253,11 @@ class StreamingApiService {
   }
 
   /**
-   * Get stream URL through backend proxy to avoid CORS and mixed content issues
+   * Get stream URL through client-side proxy
    */
   getStreamUrl(channelUrl: string): string {
-    // Use backend proxy to serve the stream through our own host
-    const proxyUrl = `/backend/proxy.php?action=proxy&url=${encodeURIComponent(channelUrl)}`;
-    return proxyUrl;
+    // Use client-side proxy system
+    return `proxy://${encodeURIComponent(channelUrl)}`;
   }
 
   /**

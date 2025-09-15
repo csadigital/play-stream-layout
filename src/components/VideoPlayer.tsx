@@ -3,6 +3,7 @@ import { Play, Pause, Users, Volume2, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStreamPlayer } from '@/hooks/useChannels';
 import { streamingApi } from '@/services/streamingApi';
+import { streamHandler } from '@/services/streamHandler';
 import heroStadium from '@/assets/hero-stadium.jpg';
 
 // HLS.js import
@@ -50,11 +51,14 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
     }
 
     if (window.Hls.isSupported()) {
-
+      // Use custom loader for proxy handling
+      const CustomLoader = streamHandler.createHLSLoader();
+      
       const hls = new window.Hls({
         enableWorker: true,
         lowLatencyMode: true,
         backBufferLength: 90,
+        loader: CustomLoader,
       });
 
       hlsRef.current = hls;
@@ -69,49 +73,20 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       });
 
       hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
-        console.error('🚨 HLS Hatası:', data);
+        console.error('🚨 HLS Error:', data);
         if (data.fatal) {
-          // Detect proxy → HTML case (no EXTM3U) and fallback to direct URL
-          const servedHtml = typeof data?.response?.data === 'string' && data.response.data.toLowerCase().includes('<!doctype html');
-          const proxyFailed = lastUrlRef.current?.includes('/api/proxy');
-          const shouldDirectFallback = proxyFailed && (
-            data.details === 'manifestLoadError' ||
-            data.details === 'manifestParsingError' ||
-            servedHtml
-          );
-
           switch (data.type) {
             case window.Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('📡 Ağ hatası - yeniden denenecek...');
-              if (shouldDirectFallback && selectedChannel?.url) {
-                const directUrl = selectedChannel.url;
-                console.log('🔀 Proxy başarısız - direkt akışa geçiliyor:', directUrl);
-                setError(null);
-                setIsLoading(true);
-                hls.loadSource(directUrl);
-                lastUrlRef.current = directUrl;
-                hls.startLoad();
-              } else {
-                hls.startLoad();
-              }
+              console.log('📡 Network error - retrying...');
+              hls.startLoad();
               break;
             case window.Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('🎥 Medya hatası - kurtarılmaya çalışılıyor...');
+              console.log('🎥 Media error - recovering...');
               hls.recoverMediaError();
               break;
             default:
-              if (shouldDirectFallback && selectedChannel?.url) {
-                const directUrl = selectedChannel.url;
-                console.log('🔀 Proxy başarısız (parse) - direkt akışa geçiliyor:', directUrl);
-                setError(null);
-                setIsLoading(true);
-                hls.loadSource(directUrl);
-                lastUrlRef.current = directUrl;
-                hls.startLoad();
-              } else {
-                setError(`Yayın hatası: ${data.details || 'Bilinmeyen hata'}`);
-                setIsLoading(false);
-              }
+              setError(`Stream error: ${data.details || 'Unknown error'}`);
+              setIsLoading(false);
               break;
           }
         }
