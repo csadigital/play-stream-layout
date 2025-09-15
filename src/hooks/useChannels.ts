@@ -84,9 +84,9 @@ export const useStreamPlayer = () => {
     setIsFullscreen(!isFullscreen);
   };
 
-  const getStreamUrl = (channel: Channel) => {
-    // Use client-side proxy system
-    return `proxy://${encodeURIComponent(channel.url)}`;
+  const getStreamUrl = async (channel: Channel) => {
+    // Use invisible proxy - real URLs completely hidden
+    return await streamingApi.getStreamUrl(channel.url);
   };
 
   return {

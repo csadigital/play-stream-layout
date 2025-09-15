@@ -1,6 +1,7 @@
 // Direct M3U8 streaming service - TypeScript only
-import { proxyService } from './proxyService';
+import { invisibleProxy } from './invisibleProxy';
 import { channelParser, ParsedChannel } from './channelParser';
+import { proxyService } from './proxyService';
 
 export interface Channel {
   id: number;
@@ -253,11 +254,11 @@ class StreamingApiService {
   }
 
   /**
-   * Get stream URL through client-side proxy
+   * Get stream URL through invisible proxy (real URLs completely hidden)
    */
-  getStreamUrl(channelUrl: string): string {
-    // Use client-side proxy system
-    return `proxy://${encodeURIComponent(channelUrl)}`;
+  async getStreamUrl(channelUrl: string): Promise<string> {
+    // Use invisible proxy - no real URLs will be visible anywhere
+    return await invisibleProxy.getStreamUrl(channelUrl);
   }
 
   /**

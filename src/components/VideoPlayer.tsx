@@ -3,7 +3,6 @@ import { Play, Pause, Users, Volume2, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStreamPlayer } from '@/hooks/useChannels';
 import { streamingApi } from '@/services/streamingApi';
-import { streamHandler } from '@/services/streamHandler';
 import heroStadium from '@/assets/hero-stadium.jpg';
 
 // HLS.js import
@@ -24,7 +23,7 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
   const lastUrlRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isPlaying, volume, isFullscreen, togglePlayPause, setVolume, toggleFullscreen, getStreamUrl } = useStreamPlayer();
+  const { isPlaying, volume, isFullscreen, togglePlayPause, setVolume, toggleFullscreen } = useStreamPlayer();
 
   // Load HLS.js dynamically
   useEffect(() => {
@@ -50,83 +49,89 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
       hlsRef.current.destroy();
     }
 
-    if (window.Hls.isSupported()) {
-      // Use custom loader for proxy handling
-      const CustomLoader = streamHandler.createHLSLoader();
-      
-      const hls = new window.Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90,
-        loader: CustomLoader,
-      });
+    const initializeStream = async () => {
+      try {
+        if (window.Hls.isSupported()) {
+          const hls = new window.Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+          });
 
-      hlsRef.current = hls;
+          hlsRef.current = hls;
 
-      hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
-        console.log('Video and HLS.js are now bound together');
-      });
+          hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+            console.log('Video and HLS.js are now bound together');
+          });
 
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        console.log('Manifest loaded, found levels:', hls.levels);
-        setIsLoading(false);
-      });
+          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            console.log('Manifest loaded, found levels:', hls.levels);
+            setIsLoading(false);
+          });
 
-      hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
-        console.error('🚨 HLS Error:', data);
-        if (data.fatal) {
-          switch (data.type) {
-            case window.Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('📡 Network error - retrying...');
-              hls.startLoad();
-              break;
-            case window.Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('🎥 Media error - recovering...');
-              hls.recoverMediaError();
-              break;
-            default:
-              setError(`Stream error: ${data.details || 'Unknown error'}`);
-              setIsLoading(false);
-              break;
-          }
+          hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
+            console.error('🚨 HLS Error:', data);
+            if (data.fatal) {
+              switch (data.type) {
+                case window.Hls.ErrorTypes.NETWORK_ERROR:
+                  console.log('📡 Network error - retrying...');
+                  hls.startLoad();
+                  break;
+                case window.Hls.ErrorTypes.MEDIA_ERROR:
+                  console.log('🎥 Media error - recovering...');
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  setError(`Stream error: ${data.details || 'Unknown error'}`);
+                  setIsLoading(false);
+                  break;
+              }
+            }
+          });
+
+          hls.attachMedia(video);
+          
+          // Track viewer for this channel
+          streamingApi.trackViewer(selectedChannel.id.toString());
+          
+          // Load the stream URL through invisible proxy
+          const streamUrl = await streamingApi.getStreamUrl(selectedChannel.url);
+          lastUrlRef.current = streamUrl;
+          hls.loadSource(streamUrl);
+
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari) 
+          const streamUrl = await streamingApi.getStreamUrl(selectedChannel.url);
+          lastUrlRef.current = streamUrl;
+          video.src = streamUrl;
+          video.addEventListener('loadedmetadata', () => {
+            console.log('✅ Video metadata loaded');
+            setIsLoading(false);
+          });
+          video.addEventListener('error', (e) => {
+            console.error('❌ Video loading error:', e);
+            setError('Stream could not be loaded - browser does not support HLS');
+            setIsLoading(false);
+          });
+        } else {
+          setError('Bu tarayıcıda HLS desteği bulunmuyor');
+          setIsLoading(false);
         }
-      });
-
-      hls.attachMedia(video);
-      
-      // Track viewer for this channel
-      streamingApi.trackViewer(selectedChannel.id.toString());
-      
-      // Load the stream URL through our proxy
-      const streamUrl = getStreamUrl(selectedChannel);
-      lastUrlRef.current = streamUrl;
-      hls.loadSource(streamUrl);
-
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari)
-      const streamUrl = getStreamUrl(selectedChannel);
-      lastUrlRef.current = streamUrl;
-      video.src = streamUrl;
-      video.addEventListener('loadedmetadata', () => {
-        console.log('✅ Video metadatası yüklendi');
+      } catch (error) {
+        console.error('Stream initialization error:', error);
+        setError('Stream başlatılamadı');
         setIsLoading(false);
-      });
-      video.addEventListener('error', (e) => {
-        console.error('❌ Video yükleme hatası:', e);
-        setError('Yayın yüklenemedi - tarayıcı HLS desteklemiyor');
-        setIsLoading(false);
-      });
-    } else {
-      setError('Bu tarayıcıda HLS desteği bulunmuyor');
-      setIsLoading(false);
-    }
+      }
+    };
+
+    initializeStream();
 
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
       }
     };
-  }, [selectedChannel, getStreamUrl]);
+  }, [selectedChannel]);
 
   // Handle play/pause
   useEffect(() => {
