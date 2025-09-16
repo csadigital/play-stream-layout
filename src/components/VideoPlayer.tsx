@@ -3,6 +3,7 @@ import { Play, Pause, Users, Volume2, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStreamPlayer } from '@/hooks/useChannels';
 import { streamingApi } from '@/services/streamingApi';
+import { streamHandler } from '@/services/streamHandler';
 import heroStadium from '@/assets/hero-stadium.jpg';
 
 // HLS.js import
@@ -56,6 +57,7 @@ const VideoPlayer = ({ selectedChannel }: VideoPlayerProps) => {
             enableWorker: true,
             lowLatencyMode: true,
             backBufferLength: 90,
+            loader: streamHandler.createHLSLoader(),
           });
 
           hlsRef.current = hls;

@@ -90,7 +90,8 @@ class InvisibleProxyService {
       return proxyUrl;
     } catch (error) {
       console.error('Stream registration failed:', error);
-      return originalUrl; // Fallback
+      // Final fallback: use client-side proxy protocol handled by custom HLS loader
+      return `proxy://${encodeURIComponent(originalUrl)}`;
     }
   }
 
