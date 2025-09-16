@@ -204,6 +204,18 @@ async function fetchThroughProxy(url) {
     }
   }
 
+  // Primary proxy: 4tvhyd.com
+  try {
+    const proxyUrl = `https://www.4tvhyd.com/gt.php?${url}`;
+    const response = await fetch(proxyUrl);
+    if (response.ok) {
+      const text = await response.text();
+      if (isValidContent(text)) return text;
+    }
+  } catch (e) {
+    // continue to fallbacks
+  }
+
   // Helper: decode AllOrigins data URL if present
   const decodeAllOriginsContents = (val) => {
     if (!val) return '';
@@ -219,7 +231,7 @@ async function fetchThroughProxy(url) {
     } catch { return ''; }
   };
 
-  // Use AllOrigins JSON API (CORS-friendly)
+  // Fallback: AllOrigins JSON API
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
     const res = await fetch(proxyUrl);
@@ -263,6 +275,17 @@ async function fetchThroughProxyBinary(url) {
     }
   }
 
+  // Primary proxy: 4tvhyd.com
+  try {
+    const proxyUrl = `https://www.4tvhyd.com/gt.php?${url}`;
+    const response = await fetch(proxyUrl);
+    if (response.ok) {
+      return await response.arrayBuffer();
+    }
+  } catch (e) {
+    // continue to fallbacks
+  }
+
   // Helper: decode AllOrigins JSON contents (data:...;base64,)
   const decodeAllOriginsToBuffer = (val) => {
     if (!val) return null;
@@ -286,7 +309,7 @@ async function fetchThroughProxyBinary(url) {
     }
   };
 
-  // AllOrigins JSON API
+  // Fallback: AllOrigins JSON API
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
     const res = await fetch(proxyUrl);
