@@ -204,19 +204,43 @@ async function fetchThroughProxy(url) {
     }
   }
 
-  // Use HTTPS CORS proxies to avoid mixed-content for http upstreams
-  for (const proxy of CORS_PROXIES) {
+  // Helper: decode AllOrigins data URL if present
+  const decodeAllOriginsContents = (val) => {
+    if (!val) return '';
     try {
-      const proxyUrl = proxy + encodeURIComponent(url);
-      const response = await fetch(proxyUrl);
-      if (response.ok) {
-        const text = await response.text();
-        if (isValidContent(text)) return text;
+      if (val.startsWith('data:')) {
+        const idx = val.indexOf('base64,');
+        if (idx !== -1) {
+          const b64 = val.substring(idx + 7);
+          try { return atob(b64); } catch { return ''; }
+        }
       }
-    } catch (e) {
-      continue;
+      return val;
+    } catch { return ''; }
+  };
+
+  // Use AllOrigins JSON API (CORS-friendly)
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const data = await res.json();
+      const text = decodeAllOriginsContents(data.contents || '');
+      if (isValidContent(text)) return text;
     }
+  } catch (e) {
+    // continue
   }
+
+  // Fallback: codetabs raw proxy
+  try {
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?request=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    if (response.ok) {
+      const text = await response.text();
+      if (isValidContent(text)) return text;
+    }
+  } catch (e) {}
 
   return null;
 }
@@ -238,20 +262,50 @@ async function fetchThroughProxyBinary(url) {
       // Ignore and try proxies
     }
   }
-  
-  // Use HTTPS CORS proxies to avoid mixed-content
-  for (const proxy of CORS_PROXIES) {
+
+  // Helper: decode AllOrigins JSON contents (data:...;base64,)
+  const decodeAllOriginsToBuffer = (val) => {
+    if (!val) return null;
     try {
-      const proxyUrl = proxy + encodeURIComponent(url);
-      const response = await fetch(proxyUrl);
-      if (response.ok) {
-        return await response.arrayBuffer();
+      if (val.startsWith('data:')) {
+        const idx = val.indexOf('base64,');
+        if (idx !== -1) {
+          const b64 = val.substring(idx + 7);
+          const binary = atob(b64);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+          return bytes.buffer;
+        }
       }
-    } catch (e) {
-      continue;
+      // Fallback: treat as text
+      const enc = new TextEncoder();
+      return enc.encode(val).buffer;
+    } catch {
+      return null;
     }
-  }
-  
+  };
+
+  // AllOrigins JSON API
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const data = await res.json();
+      const buf = decodeAllOriginsToBuffer(data.contents || '');
+      if (buf) return buf;
+    }
+  } catch (e) {}
+
+  // Fallback: codetabs raw proxy
+  try {
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?request=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    if (response.ok) {
+      return await response.arrayBuffer();
+    }
+  } catch (e) {}
+
   return null;
 }
 
