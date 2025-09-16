@@ -47,6 +47,27 @@ async function handleProxyRequest(request) {
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
     
+    if (pathParts[3] === 'register') {
+      // Handle registration: /api/stream/register?url=...
+      const originalUrl = url.searchParams.get('url');
+      if (!originalUrl) {
+        return new Response(JSON.stringify({ error: 'Missing url' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+      const streamId = generateId();
+      URL_MAPPINGS.set(streamId, originalUrl);
+      const proxyUrl = `${PROXY_BASE}/manifest/${streamId}`;
+      return new Response(JSON.stringify({ streamId, proxyUrl }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Access-Control-Allow-Origin': '*',
+        }
+      });
+    }
+
     if (pathParts[3] === 'manifest') {
       // Handle manifest requests: /api/stream/manifest/{id}
       const streamId = pathParts[4];

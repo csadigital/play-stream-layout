@@ -17,24 +17,26 @@ class InvisibleProxyService {
    */
   private async initialize(): Promise<void> {
     try {
-      if ('serviceWorker' in navigator) {
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/'
+      if (!('serviceWorker' in navigator)) throw new Error('Service Worker not supported');
+
+      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('🔧 Invisible proxy service worker registered');
+
+      // Ensure this page is controlled (first load may not be)
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise<void>((resolve) => {
+          const onChange = () => {
+            navigator.serviceWorker.removeEventListener('controllerchange', onChange as any);
+            resolve();
+          };
+          navigator.serviceWorker.addEventListener('controllerchange', onChange);
         });
-
-        console.log('🔧 Invisible proxy service worker registered');
-
-        // Wait for service worker to be ready
-        await navigator.serviceWorker.ready;
-        
-        this.worker = registration.active || registration.waiting || registration.installing;
-        this.isReady = true;
-
-        console.log('✅ Invisible proxy ready');
-      } else {
-        throw new Error('Service Worker not supported');
       }
+
+      this.worker = (navigator.serviceWorker.controller as ServiceWorker) || registration.active || registration.waiting || registration.installing;
+      this.isReady = !!this.worker;
+      console.log('✅ Invisible proxy ready');
     } catch (error) {
       console.error('❌ Failed to initialize invisible proxy:', error);
       this.isReady = false;
@@ -54,37 +56,38 @@ class InvisibleProxyService {
     }
 
     try {
-      // Create message channel for communication
+      // Preferred: register via SW fetch endpoint (more reliable than postMessage)
+      const res = await fetch(`/api/stream/register?url=${encodeURIComponent(originalUrl)}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.proxyUrl) {
+          console.log(`🔐 Stream registered: ${originalUrl} -> ${data.proxyUrl}`);
+          return data.proxyUrl as string;
+        }
+      }
+
+      // Fallback: message channel
       const channel = new MessageChannel();
-      
-      // Send registration request
       const registrationPromise = new Promise<string>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Registration timeout')), 5000);
         channel.port1.onmessage = (event) => {
-          if (event.data.type === 'STREAM_REGISTERED') {
+          clearTimeout(timeout);
+          if (event.data?.type === 'STREAM_REGISTERED' && event.data?.proxyUrl) {
             resolve(event.data.proxyUrl);
           } else {
             reject(new Error('Registration failed'));
           }
         };
-        
-        // Timeout after 5 seconds
-        setTimeout(() => reject(new Error('Registration timeout')), 5000);
       });
 
-      // Send message to service worker
       (this.worker || navigator.serviceWorker.controller)?.postMessage(
-        {
-          type: 'REGISTER_STREAM',
-          originalUrl,
-        },
+        { type: 'REGISTER_STREAM', originalUrl },
         [channel.port2]
       );
 
       const proxyUrl = await registrationPromise;
-      
-      console.log(`🔐 Stream registered: ${originalUrl} -> ${proxyUrl}`);
+      console.log(`🔐 Stream registered (fallback): ${originalUrl} -> ${proxyUrl}`);
       return proxyUrl;
-      
     } catch (error) {
       console.error('Stream registration failed:', error);
       return originalUrl; // Fallback
